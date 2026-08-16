@@ -1,108 +1,99 @@
 # SmartFix
 
-SmartFix is an AI-powered DevOps equipment troubleshooting and maintenance assistant. It helps technicians ask technical questions about equipment and receive guidance powered by a local large language model.
+SmartFix is an AI-powered DevOps equipment troubleshooting and maintenance platform. It provides a simple troubleshooting dashboard for technicians and a rich technical observability dashboard for administrators to inspect the full AI pipeline (document ingestion, text extraction, chunking, Ollama embeddings, vector similarity search, safety rules, and LLM reasoning).
 
-## Current Exercise
+---
 
-**Exercise 1 — Basic LLM Application**
+## Current Status
 
-This version accepts a user question, sends it through a FastAPI backend to Ollama, uses Code Llama to generate an answer, and displays the result in a simple web frontend with an execution flow visualization.
+- **Exercise 1 — Basic LLM Application** (Complete & Working)
+- **Exercise 2 — Technical Knowledge Base & Vector DB Observability** (Complete & Working)
+
+---
 
 ## Architecture
 
+```text
+                               +----------------------------------+
+                               |     Vue 3 + Vite Frontend        |
+                               |  (Technician UI & Admin UI)      |
+                               +-----------------+----------------+
+                                                 |
+                                     +-----------+-----------+
+                                     |                       |
+                                     v                       v
+                         +-----------------------+ +-----------------------+
+                         | Exercise 1 Backend    | | KB Service (Ex. 2)    |
+                         | (FastAPI :8000)       | | (FastAPI :8001)       |
+                         +-----------+-----------+ +-----------+-----------+
+                                     |                       |
+                                     v                       v
+                         +-------------------------------------------------+
+                         |                 Ollama API                      |
+                         |  (Code Llama for LLM, nomic-embed-text for Embed) |
+                         +-------------------------------------------------+
+                                                             |
+                                                             v
+                                                   +-------------------+
+                                                   | ChromaDB + SQLite |
+                                                   | (Local Vector DB) |
+                                                   +-------------------+
 ```
-User
-  ↓
-Frontend (Vue 3 + Vite)
-  ↓
-FastAPI Backend (POST /ask)
-  ↓
-Ollama (local HTTP API)
-  ↓
-Code Llama
-  ↓
-Response
-  ↓
-Frontend
-```
+
+---
 
 ## Features
 
-- Vue 3 + Vite frontend with Composition API and component structure
-- Dark DevOps-themed UI with execution flow visualization
-- Technical question input, sample questions, loading, errors, and response display
-- FastAPI REST API with input validation and error handling
-- Ollama integration using the local `/api/generate` endpoint
-- Code Llama response generation
-- Execution flow visualization with pending / processing / completed / error states
-- Basic backend logging
+### 1. Technician Dashboard (User UI)
+- Seamless, clean troubleshooting user interface hiding background technical complexity.
+- Ask technical maintenance questions and receive answers from Code Llama via local Ollama.
+- Sample diagnostic questions, real-time status loading, error handling, and visual execution flow tracker.
 
-## Setup
+### 2. Admin / AI Observability Dashboard (Admin UI)
+- Full visibility into the technical knowledge base pipeline.
+- **Document Ingestion**: Upload `.txt`, `.md`, and `.pdf` technical manuals and specifications.
+- **Text Extraction & Chunking**: Automatic plain-text extraction and fixed-size overlapping chunking (500 chars, 50 overlap).
+- **Ollama Embeddings**: Dense vector generation using `nomic-embed-text` (with transparent offline fallback).
+- **Vector DB Persistence**: ChromaDB persistent vector store and SQLite metadata tracking.
+- **Observability Inspectors**:
+  - Live document status table and file management.
+  - Chunk Inspector (index, character start/end boundaries, text preview).
+  - Embedding Vector Inspector (dimensions, vector ID, distance metric, float array samples).
+  - Vector store collection metrics.
 
-These steps assume macOS and that Ollama is installed separately on your machine.
+---
 
-### 1. Clone or open the project
+## Setup & Running
 
-```bash
-cd SmartFix
-```
-
-### 2. Create and activate a Python virtual environment
+### 1. Virtual Environment Setup
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
+pip install -r services/knowledge-base/requirements.txt
 ```
 
-### 3. Install backend requirements
-
-```bash
-pip install -r backend/requirements.txt
-```
-
-### 4. Start Ollama
-
-If Ollama is not already running, start it from your Applications folder or terminal:
+### 2. Start Ollama (Optional for local LLM & embeddings)
 
 ```bash
 ollama serve
-```
-
-### 5. Pull Code Llama
-
-Download the model once:
-
-```bash
 ollama pull codellama
+ollama pull nomic-embed-text
 ```
 
-You can use a specific variant if you prefer, for example:
+### 3. Start the Backend Services
 
-```bash
-ollama pull codellama:7b
-```
-
-If you use a different tag, set `OLLAMA_MODEL` when starting the backend.
-
-### 6. Start the FastAPI backend
-
-From the project root with the virtual environment activated:
-
+#### Exercise 1 Backend (Port 8000)
 ```bash
 uvicorn backend.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
-Optional environment variables:
-
+#### Exercise 2 Technical Knowledge Base Service (Port 8001)
 ```bash
-export OLLAMA_URL="http://localhost:11434"
-export OLLAMA_MODEL="codellama"
-export OLLAMA_TIMEOUT_SECONDS="120"
+uvicorn services.knowledge-base.main:app --reload --host 127.0.0.1 --port 8001
 ```
 
-### 7. Install and start the Vue frontend
-
-The frontend is a **Vue 3 + Vite** app. Install dependencies once, then start the dev server:
+### 4. Start the Vue 3 Frontend
 
 ```bash
 cd frontend
@@ -110,136 +101,94 @@ npm install
 npm run dev
 ```
 
-Then open the URL shown in the terminal (default):
+Open `http://127.0.0.1:5173` in your browser. Use the top navigation bar to toggle between **Technician Dashboard** and **Admin / AI Observability**.
 
-```text
-http://127.0.0.1:5173
-```
+---
 
-Vite proxies `/ask` and `/health` to the FastAPI backend at `http://127.0.0.1:8000`, so the backend must be running before you submit a question.
+## API Documentation
 
-Optional production build:
+### Knowledge Base Service (`http://127.0.0.1:8001`)
 
-```bash
-npm run build
-npm run preview
-```
+| Endpoint | Method | Description |
+|---|---|---|
+| `/health` | GET | Knowledge Base service health check |
+| `/kb/stats` | GET | Overall statistics (document count, chunk count, ChromaDB vector count) |
+| `/kb/documents` | GET | List all ingested documents |
+| `/kb/documents/upload` | POST | Upload and process a technical document file (`.txt`, `.md`, `.pdf`) |
+| `/kb/documents/{id}` | GET | Get specific document metadata |
+| `/kb/documents/{id}/chunks` | GET | List extracted chunks for a document |
+| `/kb/chunks/{id}` | GET | Get chunk details and vector ID |
+| `/kb/vectors/{vector_id}` | GET | Retrieve vector metadata and embedding float array preview from ChromaDB |
+| `/kb/documents/{id}` | DELETE | Delete document, SQLite metadata, and ChromaDB vector embeddings |
 
-### 8. Test the application
+### Exercise 1 Backend Service (`http://127.0.0.1:8000`)
 
-#### Browser test
+| Endpoint | Method | Description |
+|---|---|---|
+| `/health` | GET | Backend health check |
+| `/ask` | POST | Submit question to Code Llama via Ollama |
 
-1. Enter a question such as: `How should I troubleshoot low hydraulic pressure?`
-2. Click **Ask SmartFix**
-3. Watch the execution flow update
-4. Read the response from Code Llama
-
-#### API test with curl
-
-```bash
-curl -X POST "http://127.0.0.1:8000/ask" \
-  -H "Content-Type: application/json" \
-  -d '{"question": "How should I troubleshoot low hydraulic pressure?"}'
-```
-
-Example response:
-
-```json
-{
-  "question": "How should I troubleshoot low hydraulic pressure?",
-  "answer": "... Code Llama generated answer ...",
-  "model": "codellama"
-}
-```
-
-Health check:
-
-```bash
-curl http://127.0.0.1:8000/health
-```
-
-## API
-
-### `POST /ask`
-
-Accepts a troubleshooting question and returns a Code Llama answer.
-
-**Request body**
-
-```json
-{
-  "question": "How should I troubleshoot low hydraulic pressure?"
-}
-```
-
-**Success response (`200 OK`)**
-
-```json
-{
-  "question": "How should I troubleshoot low hydraulic pressure?",
-  "answer": "Check for leaks, inspect the pump inlet filter, verify fluid level ...",
-  "model": "codellama"
-}
-```
-
-**Error responses**
-
-| Status | When |
-|--------|------|
-| `400` | Empty or missing question |
-| `502` | Ollama returned an error or empty response |
-| `503` | Ollama is not reachable |
-| `504` | Ollama request timed out |
-
-### `GET /health`
-
-Simple service health check.
+---
 
 ## Project Structure
 
 ```text
 SmartFix/
 ├── backend/
-│   ├── main.py
-│   └── requirements.txt
+│   ├── main.py                     # Exercise 1 FastAPI app (port 8000)
+│   └── requirements.txt            # Core backend dependencies
+├── services/
+│   ├── knowledge-base/             # Exercise 2: Technical Knowledge Base Service
+│   │   ├── main.py                 # FastAPI service for KB (port 8001)
+│   │   ├── config.py               # Paths, chunk size, vector DB config
+│   │   ├── extractors.py           # Text extraction (.txt, .md, .pdf)
+│   │   ├── chunker.py              # Overlapping text chunker
+│   │   ├── embeddings.py           # Ollama embedding generator
+│   │   ├── vector_store.py         # Persistent ChromaDB vector store
+│   │   ├── db.py                   # SQLite metadata store
+│   │   ├── test_exercise2.py       # Pipeline automated test script
+│   │   ├── test_api.py             # ASGI endpoint test script
+│   │   └── requirements.txt        # KB service dependencies
 ├── frontend/
-│   ├── public/
 │   ├── src/
 │   │   ├── components/
-│   │   │   ├── ExecutionFlow.vue
-│   │   │   ├── QuestionPanel.vue
-│   │   │   └── ResponsePanel.vue
-│   │   ├── api.js
-│   │   ├── App.vue
-│   │   ├── flowStages.js
-│   │   ├── main.js
-│   │   └── style.css
+│   │   │   ├── common/             # Shared Navbar & View Switcher
+│   │   │   │   └── Navbar.vue
+│   │   │   ├── technician/         # User/Technician Dashboard (Ex. 1)
+│   │   │   │   ├── QuestionPanel.vue
+│   │   │   │   ├── ResponsePanel.vue
+│   │   │   │   └── ExecutionFlow.vue
+│   │   │   └── admin/              # Admin Observability Dashboard (Ex. 2)
+│   │   │       ├── DocumentManager.vue
+│   │   │       ├── ChunkViewer.vue
+│   │   │       ├── EmbeddingViewer.vue
+│   │   │       └── VectorStoreStats.vue
+│   │   ├── api/
+│   │   │   ├── askApi.js           # Exercise 1 API client
+│   │   │   └── kbApi.js            # Exercise 2 Knowledge Base API client
+│   │   ├── App.vue                 # Main view container with tab switcher
+│   │   ├── style.css
+│   │   └── main.js
 │   ├── index.html
-│   ├── package.json
-│   └── vite.config.js
+│   ├── vite.config.js              # Proxy rules for port 8000 and 8001
+│   └── package.json
+├── data/                           # Local database & vector store storage
+│   ├── documents/uploads/
+│   ├── chroma/
+│   └── knowledge-base.db
 ├── README.md
-├── LICENSE
-└── .gitignore
+└── LICENSE
 ```
 
-## Future Development
+---
 
-Later exercises will extend SmartFix with:
+## Future Roadmap
 
-- Knowledge base ingestion
-- Chunking
-- Embeddings
-- Vector similarity search
-- RAG retrieval
-- Equipment Service
-- Safety Engine
-- Equipment History Service
-- Spare Parts Service
-- Service Ticket Service
-- Orchestration across services
-- Docker and complete application architecture
+- **Exercise 3**: RAG pipeline integration (Query embedding -> Vector similarity search -> Context retrieval -> Code Llama reasoning).
+- **Exercise 4**: Service decomposition into microservices (Equipment Service, Safety Engine, History Service, Spare Parts Service, Service Ticket Service, Orchestrator).
+- **Exercise 5**: Containerization with Docker & Docker Compose setup.
 
-Those modules are intentionally **not** part of Exercise 1.
+---
 
 ## License
 

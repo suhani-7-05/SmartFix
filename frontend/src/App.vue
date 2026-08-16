@@ -1,11 +1,29 @@
 <script setup>
-import { computed, ref } from "vue";
-import { callAskApi } from "./api.js";
-import ExecutionFlow from "./components/ExecutionFlow.vue";
-import QuestionPanel from "./components/QuestionPanel.vue";
-import ResponsePanel from "./components/ResponsePanel.vue";
+import { computed, onMounted, ref } from "vue";
+import SidebarNav from "./components/common/SidebarNav.vue";
+import QuestionPanel from "./components/technician/QuestionPanel.vue";
+import ResponsePanel from "./components/technician/ResponsePanel.vue";
+import ExecutionFlow from "./components/technician/ExecutionFlow.vue";
+import VectorStoreStats from "./components/admin/VectorStoreStats.vue";
+import DocumentManager from "./components/admin/DocumentManager.vue";
+import ChunkViewer from "./components/admin/ChunkViewer.vue";
+import EmbeddingViewer from "./components/admin/EmbeddingViewer.vue";
+
+import { callAskApi } from "./api/askApi.js";
+import {
+  deleteDocument,
+  fetchDocumentChunks,
+  fetchDocuments,
+  fetchKbStats,
+  fetchVectorInfo,
+  uploadDocument,
+} from "./api/kbApi.js";
 import { FLOW_STAGE_DEFS, createInitialFlowState } from "./flowStages.js";
 
+// Active Dashboard Tab ('technician' | 'admin')
+const activeTab = ref("technician");
+
+// --- Technician State (Exercise 1) ---
 const question = ref("");
 const answer = ref("");
 const model = ref("");
@@ -97,7 +115,7 @@ async function askSmartFix() {
   if (!text) {
     isLoading.value = false;
     failFlow();
-    errorMessage.value = "Please enter a question before asking SmartFix.";
+    errorMessage.value = "Please enter a question before submitting.";
     return;
   }
 
@@ -119,55 +137,259 @@ async function askSmartFix() {
   } catch (error) {
     failFlow();
     errorMessage.value =
-      error.message || "Something went wrong while contacting SmartFix.";
+      error.message || "Something went wrong while contacting SmartFix backend.";
   } finally {
     isLoading.value = false;
   }
 }
+
+// --- Admin Observability State (Exercise 2) ---
+const kbStats = ref({
+  documents: 0,
+  chunks: 0,
+  embedded_chunks: 0,
+  vector_store: { collection: "smartfix_chunks", vector_count: 0 },
+});
+const kbStatsLoading = ref(false);
+const documents = ref([]);
+const selectedDocId = ref(null);
+const selectedDoc = computed(() =>
+  documents.value.find((d) => d.id === selectedDocId.value) || null
+);
+
+const chunks = ref([]);
+const chunksLoading = ref(false);
+
+const selectedChunk = ref(null);
+const vectorData = ref(null);
+const vectorLoading = ref(false);
+
+const isUploading = ref(false);
+const uploadError = ref("");
+
+async function loadKbStats() {
+  kbStatsLoading.value = true;
+  try {
+    kbStats.value = await fetchKbStats();
+  } catch (e) {
+    console.error("Failed to load KB stats:", e);
+  } finally {
+    kbStatsLoading.value = false;
+  }
+}
+
+async function loadDocuments() {
+  try {
+    documents.value = await fetchDocuments();
+    if (documents.value.length > 0 && !selectedDocId.value) {
+      handleSelectDoc(documents.value[0].id);
+    }
+  } catch (e) {
+    console.error("Failed to load documents:", e);
+  }
+}
+
+async function handleUpload(file) {
+  isUploading.value = true;
+  uploadError.value = "";
+  try {
+    const doc = await uploadDocument(file);
+    await loadDocuments();
+    await loadKbStats();
+    if (doc && doc.id) {
+      handleSelectDoc(doc.id);
+    }
+  } catch (err) {
+    uploadError.value = err.message || "Upload failed.";
+  } finally {
+    isUploading.value = false;
+  }
+}
+
+async function handleSelectDoc(docId) {
+  selectedDocId.value = docId;
+  chunks.value = [];
+  selectedChunk.value = null;
+  vectorData.value = null;
+
+  if (!docId) return;
+
+  chunksLoading.value = true;
+  try {
+    chunks.value = await fetchDocumentChunks(docId);
+    if (chunks.value.length > 0) {
+      handleSelectChunk(chunks.value[0]);
+    }
+  } catch (e) {
+    console.error("Failed to load chunks:", e);
+  } finally {
+    chunksLoading.value = false;
+  }
+}
+
+async function handleSelectChunk(chunk) {
+  selectedChunk.value = chunk;
+  vectorData.value = null;
+
+  if (!chunk || !chunk.vector_id) return;
+
+  vectorLoading.value = true;
+  try {
+    vectorData.value = await fetchVectorInfo(chunk.vector_id);
+  } catch (e) {
+    console.error("Failed to load vector details:", e);
+  } finally {
+    vectorLoading.value = false;
+  }
+}
+
+async function handleDeleteDoc(docId) {
+  if (!confirm("Are you sure you want to delete this document and all associated vectors?")) return;
+  try {
+    await deleteDocument(docId);
+    if (selectedDocId.value === docId) {
+      selectedDocId.value = null;
+      chunks.value = [];
+      selectedChunk.value = null;
+      vectorData.value = null;
+    }
+    await loadDocuments();
+    await loadKbStats();
+  } catch (e) {
+    alert("Delete failed: " + e.message);
+  }
+}
+
+onMounted(() => {
+  loadKbStats();
+  loadDocuments();
+});
 </script>
 
 <template>
-  <div class="page-bg"></div>
+  <div class="app-layout">
+    <!-- Left Sidebar Navbar -->
+    <SidebarNav
+      :active-tab="activeTab"
+      :stats="kbStats"
+      @select-tab="activeTab = $event"
+    />
 
-  <main class="app-shell">
-    <header class="hero">
-      <div class="hero-badge">Exercise 1 · LLM Assistant</div>
-      <div class="hero-brand">
-        <div class="logo-mark" aria-hidden="true">
-          <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <rect x="2" y="2" width="28" height="28" rx="8" stroke="currentColor" stroke-width="2" />
-            <path d="M10 16h12M16 10v12" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-            <circle cx="16" cy="16" r="4" fill="currentColor" />
-          </svg>
+    <!-- Main View Panel -->
+    <div class="main-content">
+      <!-- Technician View (Exercise 1) -->
+      <div v-if="activeTab === 'technician'" class="view-container">
+        <div class="page-header">
+          <h2>Equipment Troubleshooting</h2>
+          <p>Ask technical questions about machinery and receive guidance from Code Llama.</p>
         </div>
-        <div>
-          <h1 class="logo">SmartFix</h1>
-          <p class="tagline">AI-powered equipment troubleshooting assistant</p>
+
+        <div class="layout">
+          <div class="main-column">
+            <QuestionPanel
+              v-model="question"
+              :is-loading="isLoading"
+              :error-message="errorMessage"
+              :sample-questions="sampleQuestions"
+              @ask="askSmartFix"
+            />
+            <ResponsePanel :answer="answer" :model="model" />
+          </div>
+
+          <ExecutionFlow :flow-stages="flowStages" />
         </div>
       </div>
-      <p class="hero-desc">
-        Ask technical maintenance questions and get guidance from Code Llama via your local Ollama
-        runtime.
-      </p>
-    </header>
 
-    <div class="layout">
-      <div class="main-column">
-        <QuestionPanel
-          v-model="question"
-          :is-loading="isLoading"
-          :error-message="errorMessage"
-          :sample-questions="sampleQuestions"
-          @ask="askSmartFix"
+      <!-- Admin Observability View (Exercise 2) -->
+      <div v-else-if="activeTab === 'admin'" class="view-container">
+        <div class="page-header">
+          <h2>Knowledge Base & Vector Store</h2>
+          <p>Manage documents, inspect chunking boundaries, and observe Ollama vector embeddings in ChromaDB.</p>
+        </div>
+
+        <VectorStoreStats :stats="kbStats" :loading="kbStatsLoading" />
+
+        <DocumentManager
+          :documents="documents"
+          :selected-doc-id="selectedDocId"
+          :uploading="isUploading"
+          :upload-error="uploadError"
+          @upload="handleUpload"
+          @select-doc="handleSelectDoc"
+          @delete-doc="handleDeleteDoc"
         />
-        <ResponsePanel :answer="answer" :model="model" />
+
+        <div class="grid-2col">
+          <ChunkViewer
+            :document="selectedDoc"
+            :chunks="chunks"
+            :selected-chunk-id="selectedChunk?.id"
+            :loading="chunksLoading"
+            @select-chunk="handleSelectChunk"
+          />
+
+          <EmbeddingViewer
+            :chunk="selectedChunk"
+            :vector-data="vectorData"
+            :loading="vectorLoading"
+          />
+        </div>
       </div>
-
-      <ExecutionFlow :flow-stages="flowStages" />
     </div>
-
-    <footer class="footer">
-      <span>User → Frontend → FastAPI → Ollama → Code Llama → Response</span>
-    </footer>
-  </main>
+  </div>
 </template>
+
+<style>
+.app-layout {
+  display: flex;
+  min-height: 100vh;
+  background-color: var(--bg-main);
+}
+
+.main-content {
+  flex: 1;
+  padding: 2rem 2.5rem;
+  max-width: 1300px;
+  box-sizing: border-box;
+}
+
+.page-header {
+  margin-bottom: 1.5rem;
+}
+
+.page-header h2 {
+  margin: 0 0 0.25rem 0;
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--text-main);
+  letter-spacing: -0.01em;
+}
+
+.page-header p {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
+.grid-2col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.25rem;
+}
+
+@media (max-width: 1024px) {
+  .grid-2col {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .app-layout {
+    flex-direction: column;
+  }
+
+  .main-content {
+    padding: 1.25rem 1rem;
+  }
+}
+</style>

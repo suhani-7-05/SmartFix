@@ -1,0 +1,14 @@
+SmartFix Industrial Pump Maintenance Guide:
+Model: HP-5000 Hydraulic Pressure Pump.
+
+Safety Warning: Before servicing hydraulic pumps, ensure electrical lock-out and release residual system pressure.
+Diagnostic Steps for Low Hydraulic Pressure:
+1. Inspect fluid reservoir level and refill ISO VG 46 hydraulic oil if below min line.
+2. Check inlet filter for debris accumulation or clogging.
+3. Test primary pressure relief valve calibration (standard setpoint: 210 bar).
+4. Inspect pump seal rings for fluid leakage or wear.
+
+Spare Parts:
+- Part #HP-SEAL-01: Viton High-Pressure Shaft Seal (Compatible with HP-5000)
+- Part #HP-FLTR-05: 10-Micron Hydraulic Inlet Filter Element
+- Part #HP-VALV-210: 210-Bar Pressure Relief Valve
