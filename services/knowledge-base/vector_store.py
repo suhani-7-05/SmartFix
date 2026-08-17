@@ -1,10 +1,13 @@
 """Persist and inspect vectors in a local ChromaDB collection."""
 
+import logging
 from typing import Any
 
 import chromadb
 
-from config import CHROMA_COLLECTION, CHROMA_DIR
+from config import CHROMA_COLLECTION, CHROMA_DIR, EMBEDDING_DIMENSIONS
+
+logger = logging.getLogger("smartfix.knowledge-base.vector_store")
 
 
 class VectorStore:
@@ -13,10 +16,58 @@ class VectorStore:
     def __init__(self) -> None:
         CHROMA_DIR.mkdir(parents=True, exist_ok=True)
         self._client = chromadb.PersistentClient(path=str(CHROMA_DIR))
-        self._collection = self._client.get_or_create_collection(
+        self._collection = self._open_collection()
+
+    def _create_collection(self):
+        return self._client.get_or_create_collection(
             name=CHROMA_COLLECTION,
-            metadata={"hnsw:space": "cosine"},
+            metadata={
+                "hnsw:space": "cosine",
+                "embedding_dimensions": EMBEDDING_DIMENSIONS,
+            },
         )
+
+    def _stored_dimensions(self, collection) -> int | None:
+        metadata = collection.metadata or {}
+        stored_meta = metadata.get("embedding_dimensions")
+        if stored_meta is not None:
+            return int(stored_meta)
+
+        if collection.count() == 0:
+            return None
+
+        sample = collection.get(limit=1, include=["embeddings"])
+        embeddings = sample.get("embeddings")
+        if embeddings is not None and len(embeddings) > 0 and embeddings[0] is not None:
+            return len(embeddings[0])
+        return None
+
+    def _open_collection(self):
+        try:
+            collection = self._client.get_collection(name=CHROMA_COLLECTION)
+        except Exception:
+            return self._create_collection()
+
+        stored_dims = self._stored_dimensions(collection)
+        if stored_dims is not None and stored_dims != EMBEDDING_DIMENSIONS:
+            logger.warning(
+                "ChromaDB collection '%s' uses %d-dim vectors but expected %d. "
+                "Resetting collection — re-ingest documents to rebuild embeddings.",
+                CHROMA_COLLECTION,
+                stored_dims,
+                EMBEDDING_DIMENSIONS,
+            )
+            self._client.delete_collection(name=CHROMA_COLLECTION)
+            return self._create_collection()
+
+        return collection
+
+    def _validate_embedding(self, embedding: list[float]) -> None:
+        if len(embedding) != EMBEDDING_DIMENSIONS:
+            raise ValueError(
+                f"Embedding dimension mismatch: expected {EMBEDDING_DIMENSIONS}, got {len(embedding)}. "
+                "Ensure Ollama embed model and EMBEDDING_DIMENSIONS config are aligned, then re-ingest documents."
+            )
 
     def add_chunk(
         self,
@@ -25,6 +76,7 @@ class VectorStore:
         text: str,
         metadata: dict[str, Any],
     ) -> None:
+        self._validate_embedding(embedding)
         self._collection.add(
             ids=[vector_id],
             embeddings=[embedding],
@@ -55,7 +107,6 @@ class VectorStore:
             "embedding_preview": preview,
         }
 
-
     def search_similar(
         self,
         query_embedding: list[float],
@@ -68,6 +119,8 @@ class VectorStore:
         """
         if self.count() == 0:
             return []
+
+        self._validate_embedding(query_embedding)
 
         results = self._collection.query(
             query_embeddings=[query_embedding],
@@ -107,5 +160,5 @@ class VectorStore:
             "collection": CHROMA_COLLECTION,
             "persist_path": str(CHROMA_DIR),
             "vector_count": self.count(),
+            "embedding_dimensions": EMBEDDING_DIMENSIONS,
         }
-

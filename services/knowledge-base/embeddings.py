@@ -4,7 +4,12 @@ import math
 import re
 import httpx
 
-from config import OLLAMA_BASE_URL, OLLAMA_EMBED_MODEL, OLLAMA_TIMEOUT_SECONDS
+from config import (
+    EMBEDDING_DIMENSIONS,
+    OLLAMA_BASE_URL,
+    OLLAMA_EMBED_MODEL,
+    OLLAMA_TIMEOUT_SECONDS,
+)
 
 logger = logging.getLogger("smartfix.knowledge-base.embeddings")
 
@@ -15,9 +20,9 @@ class EmbeddingError(Exception):
 
 
 
-def _generate_fallback_vector(text: str, dimensions: int = 384) -> list[float]:
+def _generate_fallback_vector(text: str, dimensions: int = EMBEDDING_DIMENSIONS) -> list[float]:
     """
-    Generate a deterministic, semantic-preserving 384-dimensional feature vector.
+    Generate a deterministic, semantic-preserving feature vector matching the active embed model.
     Uses Term Frequency (TF) feature hashing so query words match document chunk words with high cosine similarity.
     """
     vec = [0.0] * dimensions
@@ -87,11 +92,11 @@ async def embed_text(text: str, allow_fallback: bool = True) -> tuple[list[float
             "Ollama embedding API call failed (%s). Using deterministic offline fallback vector.",
             exc,
         )
-        fallback_vec = _generate_fallback_vector(text, dimensions=384)
+        fallback_vec = _generate_fallback_vector(text)
         return fallback_vec, f"{OLLAMA_EMBED_MODEL} (offline-fallback)", len(fallback_vec)
 
     if allow_fallback:
-        fallback_vec = _generate_fallback_vector(text, dimensions=384)
+        fallback_vec = _generate_fallback_vector(text)
         return fallback_vec, f"{OLLAMA_EMBED_MODEL} (offline-fallback)", len(fallback_vec)
 
     raise EmbeddingError("Ollama returned an empty embedding vector.")

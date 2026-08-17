@@ -174,6 +174,25 @@ def get_chunk(chunk_id: str) -> dict[str, Any]:
     return dict(row)
 
 
+def update_chunk_embedding(
+    chunk_id: str,
+    *,
+    embedding_model: str,
+    embedding_dimensions: int,
+    vector_id: str,
+) -> dict[str, Any]:
+    with get_connection() as conn:
+        conn.execute(
+            """
+            UPDATE chunks
+            SET embedding_model = ?, embedding_dimensions = ?, vector_id = ?
+            WHERE id = ?
+            """,
+            (embedding_model, embedding_dimensions, vector_id, chunk_id),
+        )
+    return get_chunk(chunk_id)
+
+
 def get_stats() -> dict[str, Any]:
     with get_connection() as conn:
         doc_count = conn.execute("SELECT COUNT(*) FROM documents").fetchone()[0]
