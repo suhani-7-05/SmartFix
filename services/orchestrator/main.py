@@ -79,7 +79,7 @@ async def call_service_endpoint(
         if method.upper() == "GET":
             resp = await client.get(url, timeout=10.0)
         else:
-            resp = await client.post(url, json=json_body, timeout=30.0)
+            resp = await client.post(url, json=json_body, timeout=120.0)
 
         duration = round((time.time() - start_t) * 1000, 2)
         trace["duration_ms"] = duration
