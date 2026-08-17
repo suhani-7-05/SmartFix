@@ -1,7 +1,7 @@
-"""Generate text embeddings through the local Ollama API."""
-
+import hashlib
 import logging
-
+import math
+import re
 import httpx
 
 from config import OLLAMA_BASE_URL, OLLAMA_EMBED_MODEL, OLLAMA_TIMEOUT_SECONDS
@@ -13,22 +13,38 @@ class EmbeddingError(Exception):
     """Raised when Ollama embedding generation fails."""
 
 
-import hashlib
-import math
 
 
 def _generate_fallback_vector(text: str, dimensions: int = 384) -> list[float]:
-    """Generate a deterministic 384-dimensional normalized vector for offline/testing mode."""
-    vec = []
-    text_bytes = text.encode("utf-8")
-    for i in range(dimensions):
-        h = hashlib.sha256(text_bytes + str(i).encode("utf-8")).digest()
-        val = (int.from_bytes(h[:4], "big") / 4294967295.0) * 2.0 - 1.0
-        vec.append(val)
+    """
+    Generate a deterministic, semantic-preserving 384-dimensional feature vector.
+    Uses Term Frequency (TF) feature hashing so query words match document chunk words with high cosine similarity.
+    """
+    vec = [0.0] * dimensions
 
-    # Normalize vector to unit length
+    # Clean and tokenize text into words
+    tokens = re.findall(r"\b[a-zA-Z0-9_-]+\b", text.lower())
+    if not tokens:
+        tokens = ["empty"]
+
+    # Term Frequency Feature Hashing
+    for token in tokens:
+        # Hash token to a bucket in [0, dimensions-1]
+        h = hashlib.sha256(token.encode("utf-8")).digest()
+        idx = int.from_bytes(h[:4], "big") % dimensions
+        sign = 1.0 if (h[4] % 2 == 0) else -1.0
+        vec[idx] += sign * 1.0
+
+        # Sub-token / n-gram hash for substring matching
+        if len(token) > 3:
+            h_sub = hashlib.sha256((token[:4]).encode("utf-8")).digest()
+            idx_sub = int.from_bytes(h_sub[:4], "big") % dimensions
+            vec[idx_sub] += 0.5
+
+    # Unit normalize vector to length 1.0
     norm = math.sqrt(sum(x * x for x in vec)) or 1.0
     return [x / norm for x in vec]
+
 
 
 async def embed_text(text: str, allow_fallback: bool = True) -> tuple[list[float], str, int]:

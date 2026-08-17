@@ -314,7 +314,15 @@ onMounted(() => {
               :sample-questions="sampleQuestions"
               @ask="askSmartFix"
             />
-            <ResponsePanel :answer="answer" :model="model" />
+            <ResponsePanel
+              :answer="answer"
+              :model="model"
+              :safety-decision="orchestrationData.safety?.decision"
+              :ticket="orchestrationData.ticket"
+              :spare-parts="orchestrationData.spare_parts"
+              :equipment="orchestrationData.equipment"
+            />
+
           </div>
 
           <ExecutionFlow :flow-stages="flowStages" />
