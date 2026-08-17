@@ -73,6 +73,11 @@ def _utc_now() -> str:
 # Endpoints
 # ---------------------------------------------------------------------------
 
+class QueryRequest(BaseModel):
+    query: str = Field(..., description="Troubleshooting query text")
+    top_k: int = Field(default=3, description="Number of top relevant chunks to retrieve")
+
+
 @app.get("/health")
 async def health_check() -> dict[str, Any]:
     """Health check endpoint."""
@@ -82,6 +87,40 @@ async def health_check() -> dict[str, Any]:
         "embed_model": OLLAMA_EMBED_MODEL,
         "chroma_vectors": vector_store.count(),
     }
+
+
+@app.post("/search")
+@app.post("/kb/search")
+async def search_knowledge_base(body: QueryRequest) -> dict[str, Any]:
+    """
+    RAG Vector Similarity Search endpoint.
+
+    Pipeline:
+    Query -> Query Embedding -> Vector Similarity -> Top-K Chunks -> Retrieved Context
+    """
+    query_text = body.query.strip()
+    if not query_text:
+        raise HTTPException(status_code=400, detail="Query text cannot be empty.")
+
+    try:
+        query_vec, model_name, dims = await embed_text(query_text)
+    except Exception as exc:
+        logger.error("Failed to compute query embedding: %s", exc)
+        raise HTTPException(status_code=502, detail=f"Query embedding failed: {exc}") from exc
+
+    results = vector_store.search_similar(query_vec, top_k=body.top_k)
+
+    return {
+        "query": query_text,
+        "query_embedding_metadata": {
+            "model": model_name,
+            "dimensions": dims,
+            "vector_preview": [float(x) for x in query_vec[:8]],
+        },
+        "retrieved_chunks": results,
+        "retrieved_count": len(results),
+    }
+
 
 
 @app.get("/kb/stats")

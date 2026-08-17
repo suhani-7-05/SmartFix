@@ -1,0 +1,141 @@
+version: '3.8'
+
+services:
+  # 1. Orchestrator Service (Main Entrypoint)
+  orchestrator:
+    build:
+      context: .
+      dockerfile: Dockerfile.service
+    command: uvicorn services.orchestrator.main:app --host 0.0.0.0 --port 8000
+    ports:
+      - "8000:8000"
+    environment:
+      - RAG_SERVICE_URL=http://rag-service:8001
+      - EQUIPMENT_SERVICE_URL=http://equipment-service:8002
+      - SAFETY_SERVICE_URL=http://safety-service:8003
+      - HISTORY_SERVICE_URL=http://history-service:8004
+      - SPARE_PARTS_SERVICE_URL=http://spare-parts-service:8005
+      - TICKET_SERVICE_URL=http://ticket-service:8006
+      - LLM_SERVICE_URL=http://llm-service:8007
+    volumes:
+      - ./data:/app/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # 2. RAG & Knowledge Base Service
+  rag-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.service
+    command: uvicorn services.rag.main:app --host 0.0.0.0 --port 8001
+    ports:
+      - "8001:8001"
+    environment:
+      - OLLAMA_URL=http://host.docker.internal:11434
+    volumes:
+      - ./data:/app/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # 3. Equipment Service
+  equipment-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.service
+    command: uvicorn services.equipment.main:app --host 0.0.0.0 --port 8002
+    ports:
+      - "8002:8002"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # 4. Safety Engine Service
+  safety-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.service
+    command: uvicorn services.safety.main:app --host 0.0.0.0 --port 8003
+    ports:
+      - "8003:8003"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8003/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # 5. History Service
+  history-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.service
+    command: uvicorn services.history.main:app --host 0.0.0.0 --port 8004
+    ports:
+      - "8004:8004"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8004/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # 6. Spare Parts Service
+  spare-parts-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.service
+    command: uvicorn services.spare_parts.main:app --host 0.0.0.0 --port 8005
+    ports:
+      - "8005:8005"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8005/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # 7. Service Ticket Service
+  ticket-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.service
+    command: uvicorn services.tickets.main:app --host 0.0.0.0 --port 8006
+    ports:
+      - "8006:8006"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8006/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # 8. LLM Gateway Service
+  llm-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.service
+    command: uvicorn services.llm.main:app --host 0.0.0.0 --port 8007
+    ports:
+      - "8007:8007"
+    environment:
+      - OLLAMA_URL=http://host.docker.internal:11434
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8007/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # 9. Vue 3 Frontend UI
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    ports:
+      - "5173:80"
+    depends_on:
+      - orchestrator
+      - rag-service

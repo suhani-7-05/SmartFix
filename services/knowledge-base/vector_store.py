@@ -56,6 +56,49 @@ class VectorStore:
         }
 
 
+    def search_similar(
+        self,
+        query_embedding: list[float],
+        top_k: int = 3,
+    ) -> list[dict[str, Any]]:
+        """
+        Perform vector similarity search against ChromaDB collection.
+
+        Returns top-K matching chunks with similarity scores and metadata.
+        """
+        if self.count() == 0:
+            return []
+
+        results = self._collection.query(
+            query_embeddings=[query_embedding],
+            n_results=min(top_k, self.count()),
+            include=["documents", "metadatas", "distances"],
+        )
+
+        matches = []
+        if results and results.get("ids") and results["ids"][0]:
+            ids = results["ids"][0]
+            docs = results["documents"][0]
+            metas = results["metadatas"][0]
+            distances = results["distances"][0]
+
+            for vec_id, doc_text, meta, dist in zip(ids, docs, metas, distances):
+                # Cosine distance: similarity score = 1.0 - distance (or max(0, 1.0 - dist))
+                sim_score = max(0.0, round(1.0 - float(dist), 4))
+                matches.append(
+                    {
+                        "vector_id": vec_id,
+                        "text": doc_text,
+                        "metadata": meta,
+                        "distance": round(float(dist), 4),
+                        "similarity_score": sim_score,
+                    }
+                )
+
+        # Sort by highest similarity score first
+        matches.sort(key=lambda x: x["similarity_score"], reverse=True)
+        return matches
+
     def count(self) -> int:
         return self._collection.count()
 
@@ -65,3 +108,4 @@ class VectorStore:
             "persist_path": str(CHROMA_DIR),
             "vector_count": self.count(),
         }
+

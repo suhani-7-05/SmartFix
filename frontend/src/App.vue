@@ -4,10 +4,14 @@ import SidebarNav from "./components/common/SidebarNav.vue";
 import QuestionPanel from "./components/technician/QuestionPanel.vue";
 import ResponsePanel from "./components/technician/ResponsePanel.vue";
 import ExecutionFlow from "./components/technician/ExecutionFlow.vue";
+
 import VectorStoreStats from "./components/admin/VectorStoreStats.vue";
 import DocumentManager from "./components/admin/DocumentManager.vue";
 import ChunkViewer from "./components/admin/ChunkViewer.vue";
 import EmbeddingViewer from "./components/admin/EmbeddingViewer.vue";
+import ExecutionTraceViewer from "./components/admin/ExecutionTraceViewer.vue";
+import RAGRetrievedContextViewer from "./components/admin/RAGRetrievedContextViewer.vue";
+import SafetyAndEquipmentViewer from "./components/admin/SafetyAndEquipmentViewer.vue";
 
 import { callAskApi } from "./api/askApi.js";
 import {
@@ -23,18 +27,30 @@ import { FLOW_STAGE_DEFS, createInitialFlowState } from "./flowStages.js";
 // Active Dashboard Tab ('technician' | 'admin')
 const activeTab = ref("technician");
 
-// --- Technician State (Exercise 1) ---
-const question = ref("");
+// --- Technician & Orchestrated State ---
+const question = ref("EQ-1023 has low hydraulic pressure. How do I fix it?");
 const answer = ref("");
 const model = ref("");
 const errorMessage = ref("");
 const isLoading = ref(false);
 const flowState = ref(createInitialFlowState());
 
+// Orchestration & Observability Data
+const orchestrationData = ref({
+  execution_trace: [],
+  total_duration_ms: 0,
+  rag: {},
+  safety: {},
+  equipment: {},
+  history: {},
+  spare_parts: {},
+  ticket: {},
+});
+
 const sampleQuestions = [
-  "How should I troubleshoot low hydraulic pressure?",
-  "What causes overheating in industrial pumps?",
-  "How do I safely inspect a conveyor belt motor?",
+  "EQ-1023 has low hydraulic pressure. How do I fix it?",
+  "How do I clear a jammed belt on conveyor EQ-2045?",
+  "EQ-3081 stator temperature high. Can I open terminal box while live?",
 ];
 
 const flowStages = computed(() =>
@@ -131,8 +147,13 @@ async function askSmartFix() {
     setStageStatus("response-received", "completed");
     advanceFlowTo("response-displayed");
 
-    answer.value = data.answer;
-    model.value = data.model;
+    answer.value = data.answer || "No response received.";
+    model.value = data.model || "codellama";
+
+    if (data.execution_trace) {
+      orchestrationData.value = data;
+    }
+
     completeFlow();
   } catch (error) {
     failFlow();
@@ -143,7 +164,7 @@ async function askSmartFix() {
   }
 }
 
-// --- Admin Observability State (Exercise 2) ---
+// --- Knowledge Base State (Exercise 2) ---
 const kbStats = ref({
   documents: 0,
   chunks: 0,
@@ -277,11 +298,11 @@ onMounted(() => {
 
     <!-- Main View Panel -->
     <div class="main-content">
-      <!-- Technician View (Exercise 1) -->
+      <!-- Technician View (Exercise 1 & Final Flow) -->
       <div v-if="activeTab === 'technician'" class="view-container">
         <div class="page-header">
           <h2>Equipment Troubleshooting</h2>
-          <p>Ask technical questions about machinery and receive guidance from Code Llama.</p>
+          <p>Ask technical questions about equipment and receive diagnostic guidance powered by Code Llama.</p>
         </div>
 
         <div class="layout">
@@ -300,13 +321,34 @@ onMounted(() => {
         </div>
       </div>
 
-      <!-- Admin Observability View (Exercise 2) -->
+      <!-- Admin Observability View (Exercises 2, 3, 4, 5) -->
       <div v-else-if="activeTab === 'admin'" class="view-container">
         <div class="page-header">
-          <h2>Knowledge Base & Vector Store</h2>
-          <p>Manage documents, inspect chunking boundaries, and observe Ollama vector embeddings in ChromaDB.</p>
+          <h2>AI & Microservices Observability Dashboard</h2>
+          <p>Inspect real orchestrator execution traces, RAG vector similarity, Safety Engine decisions, equipment specs, and vector DB storage.</p>
         </div>
 
+        <!-- Real Execution Trace (Exercise 4 Orchestration) -->
+        <ExecutionTraceViewer
+          :trace="orchestrationData.execution_trace"
+          :total-duration-ms="orchestrationData.total_duration_ms"
+        />
+
+        <!-- RAG Search & Vector Retrieval (Exercise 3 RAG) -->
+        <RAGRetrievedContextViewer
+          :rag-data="orchestrationData.rag"
+        />
+
+        <!-- Safety Engine, Equipment, History & Parts (Exercise 4 Microservices) -->
+        <SafetyAndEquipmentViewer
+          :safety="orchestrationData.safety"
+          :equipment="orchestrationData.equipment"
+          :history="orchestrationData.history"
+          :spare-parts="orchestrationData.spare_parts"
+          :ticket="orchestrationData.ticket"
+        />
+
+        <!-- Knowledge Base & Vector Ingestion (Exercise 2) -->
         <VectorStoreStats :stats="kbStats" :loading="kbStatsLoading" />
 
         <DocumentManager
@@ -349,7 +391,7 @@ onMounted(() => {
 .main-content {
   flex: 1;
   padding: 2rem 2.5rem;
-  max-width: 1300px;
+  max-width: 1400px;
   box-sizing: border-box;
 }
 

@@ -51,7 +51,13 @@ async def test_api():
                 r_vec = await client.get(f"/kb/vectors/{vec_id}")
                 print(f"GET /kb/vectors/{vec_id}:", r_vec.status_code, "Dims:", r_vec.json()["dimensions"])
 
+        # 7. RAG Search
+        r_search = await client.post("/kb/search", json={"query": "low hydraulic pressure", "top_k": 2})
+        print("POST /kb/search:", r_search.status_code, f"Retrieved {r_search.json()['retrieved_count']} chunks")
+        assert r_search.status_code == 200
+
     print("✅ All Knowledge Base API Endpoints Verified Successfully!")
+
 
 
 if __name__ == "__main__":

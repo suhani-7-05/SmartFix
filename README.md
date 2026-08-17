@@ -1,17 +1,14 @@
-# SmartFix
+# SmartFix — AI-Powered DevOps Equipment Troubleshooting Platform
 
-SmartFix is an AI-powered DevOps equipment troubleshooting and maintenance platform. It provides a simple troubleshooting dashboard for technicians and a rich technical observability dashboard for administrators to inspect the full AI pipeline (document ingestion, text extraction, chunking, Ollama embeddings, vector similarity search, safety rules, and LLM reasoning).
+SmartFix is an AI-powered equipment troubleshooting and maintenance platform designed for DevOps environments.
 
----
-
-## Current Status
-
-- **Exercise 1 — Basic LLM Application** (Complete & Working)
-- **Exercise 2 — Technical Knowledge Base & Vector DB Observability** (Complete & Working)
+It provides two tailored interfaces:
+1. **Technician Interface**: A clean, intuitive troubleshooting dashboard showing diagnosis, recommended actions, safety precautions, spare-part availability, and automated service tickets.
+2. **Admin AI/DevOps Observability Dashboard**: A comprehensive observability dashboard exposing real step-by-step orchestrator execution traces, RAG vector similarity search, query embeddings, retrieved context, deterministic safety rules, equipment metadata, maintenance history, spare parts inventory, and LLM gateway metrics.
 
 ---
 
-## Architecture
+## Architecture Diagram
 
 ```text
                                +----------------------------------+
@@ -19,174 +16,128 @@ SmartFix is an AI-powered DevOps equipment troubleshooting and maintenance platf
                                |  (Technician UI & Admin UI)      |
                                +-----------------+----------------+
                                                  |
-                                     +-----------+-----------+
-                                     |                       |
-                                     v                       v
-                         +-----------------------+ +-----------------------+
-                         | Exercise 1 Backend    | | KB Service (Ex. 2)    |
-                         | (FastAPI :8000)       | | (FastAPI :8001)       |
-                         +-----------+-----------+ +-----------+-----------+
-                                     |                       |
-                                     v                       v
-                         +-------------------------------------------------+
-                         |                 Ollama API                      |
-                         |  (Code Llama for LLM, nomic-embed-text for Embed) |
-                         +-------------------------------------------------+
-                                                             |
-                                                             v
-                                                   +-------------------+
-                                                   | ChromaDB + SQLite |
-                                                   | (Local Vector DB) |
-                                                   +-------------------+
+                                                 v
+                               +----------------------------------+
+                               |    Orchestrator Service (:8000)   |
+                               |    Coordinates Microservices     |
+                               +-----------------+----------------+
+                                                 |
+        +------------------+------------------+--+-------------------+------------------+
+        |                  |                  |                      |                  |
+        v                  v                  v                      v                  v
++---------------+  +---------------+  +---------------+      +---------------+  +---------------+
+| Equipment Svc |  |  History Svc  |  |  RAG Service  |      | Safety Engine |  |Spare Parts Svc|
+|    (:8002)    |  |    (:8004)    |  |    (:8001)    |      |    (:8003)    |  |    (:8005)    |
++---------------+  +---------------+  +-------+-------+      +---------------+  +---------------+
+                                              |
+                                              v
+                                    +-------------------+
+                                    | ChromaDB + SQLite |
+                                    | (Local Vector DB) |
+                                    +-------------------+
+                                              |
+        +-------------------------------------+-------------------------------------+
+        |                                                                           |
+        v                                                                           v
++---------------+                                                           +---------------+
+| Ticket Svc    |                                                           | LLM Svc       |
+|    (:8006)    |                                                           |    (:8007)    |
++---------------+                                                           +-------+-------+
+                                                                                    |
+                                                                                    v
+                                                                            +---------------+
+                                                                            | Local Ollama  |
+                                                                            |  Code Llama   |
+                                                                            +---------------+
 ```
 
 ---
 
-## Features
+## Exercise Progression
 
-### 1. Technician Dashboard (User UI)
-- Seamless, clean troubleshooting user interface hiding background technical complexity.
-- Ask technical maintenance questions and receive answers from Code Llama via local Ollama.
-- Sample diagnostic questions, real-time status loading, error handling, and visual execution flow tracker.
-
-### 2. Admin / AI Observability Dashboard (Admin UI)
-- Full visibility into the technical knowledge base pipeline.
-- **Document Ingestion**: Upload `.txt`, `.md`, and `.pdf` technical manuals and specifications.
-- **Text Extraction & Chunking**: Automatic plain-text extraction and fixed-size overlapping chunking (500 chars, 50 overlap).
-- **Ollama Embeddings**: Dense vector generation using `nomic-embed-text` (with transparent offline fallback).
-- **Vector DB Persistence**: ChromaDB persistent vector store and SQLite metadata tracking.
-- **Observability Inspectors**:
-  - Live document status table and file management.
-  - Chunk Inspector (index, character start/end boundaries, text preview).
-  - Embedding Vector Inspector (dimensions, vector ID, distance metric, float array samples).
-  - Vector store collection metrics.
+- **Exercise 1 — Basic LLM Application**: Vue 3 + Vite frontend, FastAPI backend, Ollama + Code Llama integration, execution-flow visualization.
+- **Exercise 2 — Technical Knowledge Base & Vector DB**: Technical manual ingestion (`.txt`, `.md`, `.pdf`), text extraction (`pypdf`), fixed-size overlapping chunking, Ollama embeddings (`nomic-embed-text`), SQLite metadata tracking, and ChromaDB persistent vector storage.
+- **Exercise 3 — RAG Pipeline**: Question → Query Embedding → Vector Similarity Search → Top-K Relevant Chunks → Context Construction → Code Llama Answer Synthesis. RAG retrieval & similarity score observability.
+- **Exercise 4 — Microservices & Orchestrator**: Decoupled microservices architecture across 8 API services with a deterministic Safety Engine (`ALLOWED`, `WARNING`, `BLOCKED`) and real step-by-step orchestrator execution traces.
+- **Exercise 5 — Containerization with Docker**: Containerized microservices, Nginx frontend, multi-stage Dockerfiles, and `docker-compose.yml` orchestration.
 
 ---
 
-## Setup & Running
+## Microservices API Reference
 
-### 1. Virtual Environment Setup
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r services/knowledge-base/requirements.txt
-```
-
-### 2. Start Ollama (Optional for local LLM & embeddings)
-
-```bash
-ollama serve
-ollama pull codellama
-ollama pull nomic-embed-text
-```
-
-### 3. Start the Backend Services
-
-#### Exercise 1 Backend (Port 8000)
-```bash
-uvicorn backend.main:app --reload --host 127.0.0.1 --port 8000
-```
-
-#### Exercise 2 Technical Knowledge Base Service (Port 8001)
-```bash
-uvicorn services.knowledge-base.main:app --reload --host 127.0.0.1 --port 8001
-```
-
-### 4. Start the Vue 3 Frontend
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-Open `http://127.0.0.1:5173` in your browser. Use the top navigation bar to toggle between **Technician Dashboard** and **Admin / AI Observability**.
+| Service | Port | Key Endpoints | Description |
+|---|---|---|---|
+| **Orchestrator** | 8000 | `POST /ask`, `POST /orchestrate` | Coordinates microservices, returns answer & real execution trace |
+| **RAG Service** | 8001 | `POST /rag/retrieve`, `POST /documents/upload`, `GET /vectors/{id}` | Manages technical manuals, embeddings, and vector search |
+| **Equipment Service** | 8002 | `GET /equipment/{id}` | Returns structured machinery specifications by Equipment ID (`EQ-1023`, `EQ-2045`, `EQ-3081`) |
+| **Safety Engine** | 8003 | `POST /safety/evaluate` | Deterministic safety evaluator returning `ALLOWED`, `WARNING`, or `BLOCKED` |
+| **History Service** | 8004 | `GET /history/{id}` | Returns historical maintenance events and past failure logs |
+| **Spare Parts Service** | 8005 | `GET /spare-parts/{id}` | Returns compatible spare parts inventory & stock availability |
+| **Ticket Service** | 8006 | `POST /tickets/create`, `GET /tickets` | Generates & tracks field technician dispatch tickets (`TKT-XXXX`) |
+| **LLM Gateway** | 8007 | `POST /llm/generate` | Interfaces with Ollama + Code Llama to synthesize natural language diagnosis |
 
 ---
 
-## API Documentation
+## Running the Application
 
-### Knowledge Base Service (`http://127.0.0.1:8001`)
+### Method A: Local Microservices (Development)
 
-| Endpoint | Method | Description |
-|---|---|---|
-| `/health` | GET | Knowledge Base service health check |
-| `/kb/stats` | GET | Overall statistics (document count, chunk count, ChromaDB vector count) |
-| `/kb/documents` | GET | List all ingested documents |
-| `/kb/documents/upload` | POST | Upload and process a technical document file (`.txt`, `.md`, `.pdf`) |
-| `/kb/documents/{id}` | GET | Get specific document metadata |
-| `/kb/documents/{id}/chunks` | GET | List extracted chunks for a document |
-| `/kb/chunks/{id}` | GET | Get chunk details and vector ID |
-| `/kb/vectors/{vector_id}` | GET | Retrieve vector metadata and embedding float array preview from ChromaDB |
-| `/kb/documents/{id}` | DELETE | Delete document, SQLite metadata, and ChromaDB vector embeddings |
+1. **Activate Virtual Environment & Install Dependencies**:
+   ```bash
+   python3 -m venv .venv
+   source .venv/bin/activate
+   pip install -r services/knowledge-base/requirements.txt
+   ```
 
-### Exercise 1 Backend Service (`http://127.0.0.1:8000`)
+2. **Ingest Technical Manuals into ChromaDB**:
+   ```bash
+   python ingest_manuals.py
+   ```
 
-| Endpoint | Method | Description |
-|---|---|---|
-| `/health` | GET | Backend health check |
-| `/ask` | POST | Submit question to Code Llama via Ollama |
+3. **Start Local Ollama (Optional for local LLM & Embeddings)**:
+   ```bash
+   ollama serve
+   ollama pull codellama
+   ollama pull nomic-embed-text
+   ```
 
----
+4. **Start Microservices**:
+   ```bash
+   uvicorn services.orchestrator.main:app --port 8000 &
+   uvicorn services.rag.main:app --port 8001 &
+   uvicorn services.equipment.main:app --port 8002 &
+   uvicorn services.safety.main:app --port 8003 &
+   uvicorn services.history.main:app --port 8004 &
+   uvicorn services.spare_parts.main:app --port 8005 &
+   uvicorn services.tickets.main:app --port 8006 &
+   uvicorn services.llm.main:app --port 8007 &
+   ```
 
-## Project Structure
-
-```text
-SmartFix/
-├── backend/
-│   ├── main.py                     # Exercise 1 FastAPI app (port 8000)
-│   └── requirements.txt            # Core backend dependencies
-├── services/
-│   ├── knowledge-base/             # Exercise 2: Technical Knowledge Base Service
-│   │   ├── main.py                 # FastAPI service for KB (port 8001)
-│   │   ├── config.py               # Paths, chunk size, vector DB config
-│   │   ├── extractors.py           # Text extraction (.txt, .md, .pdf)
-│   │   ├── chunker.py              # Overlapping text chunker
-│   │   ├── embeddings.py           # Ollama embedding generator
-│   │   ├── vector_store.py         # Persistent ChromaDB vector store
-│   │   ├── db.py                   # SQLite metadata store
-│   │   ├── test_exercise2.py       # Pipeline automated test script
-│   │   ├── test_api.py             # ASGI endpoint test script
-│   │   └── requirements.txt        # KB service dependencies
-├── frontend/
-│   ├── src/
-│   │   ├── components/
-│   │   │   ├── common/             # Shared Navbar & View Switcher
-│   │   │   │   └── Navbar.vue
-│   │   │   ├── technician/         # User/Technician Dashboard (Ex. 1)
-│   │   │   │   ├── QuestionPanel.vue
-│   │   │   │   ├── ResponsePanel.vue
-│   │   │   │   └── ExecutionFlow.vue
-│   │   │   └── admin/              # Admin Observability Dashboard (Ex. 2)
-│   │   │       ├── DocumentManager.vue
-│   │   │       ├── ChunkViewer.vue
-│   │   │       ├── EmbeddingViewer.vue
-│   │   │       └── VectorStoreStats.vue
-│   │   ├── api/
-│   │   │   ├── askApi.js           # Exercise 1 API client
-│   │   │   └── kbApi.js            # Exercise 2 Knowledge Base API client
-│   │   ├── App.vue                 # Main view container with tab switcher
-│   │   ├── style.css
-│   │   └── main.js
-│   ├── index.html
-│   ├── vite.config.js              # Proxy rules for port 8000 and 8001
-│   └── package.json
-├── data/                           # Local database & vector store storage
-│   ├── documents/uploads/
-│   ├── chroma/
-│   └── knowledge-base.db
-├── README.md
-└── LICENSE
-```
+5. **Start Vue 3 Frontend**:
+   ```bash
+   cd frontend
+   npm install
+   npm run dev
+   ```
+   Open `http://127.0.0.1:5173` in your browser.
 
 ---
 
-## Future Roadmap
+### Method B: Docker & Docker Compose
 
-- **Exercise 3**: RAG pipeline integration (Query embedding -> Vector similarity search -> Context retrieval -> Code Llama reasoning).
-- **Exercise 4**: Service decomposition into microservices (Equipment Service, Safety Engine, History Service, Spare Parts Service, Service Ticket Service, Orchestrator).
-- **Exercise 5**: Containerization with Docker & Docker Compose setup.
+1. **Build and Launch Containerized Services**:
+   ```bash
+   docker-compose up --build
+   ```
+
+2. Open `http://localhost:5173` for the Vue 3 Frontend.
+
+---
+
+## Data Sources & Documentation
+
+- **Technical Manuals**: Public/open maintenance specs for industrial hydraulic pressure pumps (`HP-5000`), conveyor belt systems (`CB-200`), and 3-phase electric motors (`IM-750`) stored in `data/documents/uploads/`.
+- **Synthetic Project Data**: Project-specific structured equipment records (`EQ-1023`, `EQ-2045`, `EQ-3081`), failure logs, spare part inventory numbers (`HP-FLTR-05`, `HP-SEAL-01`), and ticket records (`TKT-1001`).
 
 ---
 
