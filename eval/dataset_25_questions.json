@@ -1,0 +1,152 @@
+[
+  {
+    "id": "Q01",
+    "category": "Code Explanation",
+    "question": "What does the search_similar() function in vector_store.py do?",
+    "ground_truth": "Queries the ChromaDB collection using cosine distance for a given query vector, retrieves the top-K matching document chunks, computes similarity scores as (1.0 - distance), and formats the returned metadata list."
+  },
+  {
+    "id": "Q02",
+    "category": "Code Explanation",
+    "question": "How does the Safety Engine service evaluate safety rules in services/safety/main.py?",
+    "ground_truth": "The Safety Engine evaluates explicit deterministic rules based on equipment ID, operational specs, and keyword patterns (e.g. 400V live access, high hydraulic pressure). It returns ALLOWED, WARNING, or BLOCKED with required safety precautions and triggered rules."
+  },
+  {
+    "id": "Q03",
+    "category": "Code Explanation",
+    "question": "What is the purpose of the Orchestrator Service in services/orchestrator/main.py?",
+    "ground_truth": "The Orchestrator coordinates microservice HTTP calls in sequence (Equipment -> History -> RAG -> Safety -> Spare Parts -> LLM -> Ticket), records real step latencies and HTTP status codes, and returns both technician answers and admin observability traces."
+  },
+  {
+    "id": "Q04",
+    "category": "Code Retrieval",
+    "question": "Which file handles text chunking and character offset tracking for uploaded documents?",
+    "ground_truth": "services/knowledge-base/chunker.py handles text chunking with 400-character fixed sizes, 50-character overlaps, and exact char_start/char_end tracking."
+  },
+  {
+    "id": "Q05",
+    "category": "Code Retrieval",
+    "question": "Which file defines the Vue 3 component for rendering the real step-by-step service trace timeline?",
+    "ground_truth": "frontend/src/components/admin/ExecutionTraceViewer.vue defines the execution trace timeline component."
+  },
+  {
+    "id": "Q06",
+    "category": "Code Retrieval",
+    "question": "Which backend file defines the REST endpoint for creating automated service tickets?",
+    "ground_truth": "services/tickets/main.py defines the POST /tickets/create endpoint."
+  },
+  {
+    "id": "Q07",
+    "category": "Dependency Understanding",
+    "question": "Which microservices call the Equipment Service on port 8002?",
+    "ground_truth": "The Orchestrator Service (services/orchestrator/main.py) calls the Equipment Service during Step 1 of the request pipeline."
+  },
+  {
+    "id": "Q08",
+    "category": "Dependency Understanding",
+    "question": "Which external library and database store the dense text embeddings for RAG retrieval?",
+    "ground_truth": "ChromaDB stores persistent vector embeddings in data/chroma, and SQLite (data/knowledge-base.db) tracks document metadata."
+  },
+  {
+    "id": "Q09",
+    "category": "Dependency Understanding",
+    "question": "How does the LLM Gateway Service interact with Ollama?",
+    "ground_truth": "services/llm/main.py sends HTTP POST requests to http://localhost:11434/api/generate using the codellama model, passing the augmented RAG and safety prompt."
+  },
+  {
+    "id": "Q10",
+    "category": "Bug Analysis",
+    "question": "What would happen if the ChromaDB vector search returns empty results for a RAG query?",
+    "ground_truth": "The RAG Service returns empty retrieved_chunks, constructed_context becomes 'No manual context found.', and the LLM receives fallback prompt instructions without technical manual snippets."
+  },
+  {
+    "id": "Q11",
+    "category": "Bug Analysis",
+    "question": "What causes hydraulic pressure drop below 160 bar in EQ-1023 according to the technical manual?",
+    "ground_truth": "Clogging of the 10-micron inlet suction filter element HP-FLTR-05 or miscalibration of the 210-bar primary pressure relief valve HP-VALV-210."
+  },
+  {
+    "id": "Q12",
+    "category": "Bug Analysis",
+    "question": "Why does attempting to open the 400V terminal box on EQ-3081 while live result in a BLOCKED decision?",
+    "ground_truth": "Live access to 400V 3-phase motor terminals poses lethal electrical arc flash and shock hazards. The Safety Engine deterministically blocks the operation and dispatches ticket TKT-1001."
+  },
+  {
+    "id": "Q13",
+    "category": "Bug Analysis",
+    "question": "What error occurs if an array truthiness check is evaluated on a NumPy vector returned by ChromaDB?",
+    "ground_truth": "Evaluating 'if embedding:' on a NumPy array raises ValueError: 'The truth value of an array with more than one element is ambiguous', resolved using 'if embedding is not None and len(embedding) > 0'."
+  },
+  {
+    "id": "Q14",
+    "category": "Code Generation",
+    "question": "Write a Python function to parse equipment IDs like EQ-1023 from a query string.",
+    "ground_truth": "def extract_equipment_id(text: str, default_id: str = 'EQ-1023') -> str:\n    import re\n    match = re.search(r'\\b(EQ-\\d{4})\\b', text, re.IGNORECASE)\n    return match.group(1).upper() if match else default_id"
+  },
+  {
+    "id": "Q15",
+    "category": "Code Generation",
+    "question": "Write a unit test for verifying the Safety Engine ALLOWED decision on basic queries.",
+    "ground_truth": "async def test_safety_allowed():\n    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=safety_app), base_url='http://test') as client:\n        res = await client.post('/safety/evaluate', json={'equipment_id': 'EQ-1023', 'question': 'Check fluid level'})\n        assert res.json()['decision'] == 'ALLOWED'"
+  },
+  {
+    "id": "Q16",
+    "category": "Code Generation",
+    "question": "Write a FastAPI health check endpoint returning service name and status.",
+    "ground_truth": "@app.get('/health')\nasync def health_check():\n    return {'status': 'ok', 'service': 'smartfix-service'}"
+  },
+  {
+    "id": "Q17",
+    "category": "Refactoring",
+    "question": "How can vector search performance in vector_store.py be optimized for bulk queries?",
+    "ground_truth": "Batch query vector embeddings in a single collection.query() call rather than querying one vector at a time, utilizing multi-threaded SIMD matrix multiplication in ChromaDB."
+  },
+  {
+    "id": "Q18",
+    "category": "Refactoring",
+    "question": "Suggest an improvement to the HTTP service calls in orchestrator/main.py to improve latency.",
+    "ground_truth": "Execute independent microservice calls (Equipment, History, RAG, Safety, Spare Parts) concurrently using asyncio.gather() instead of sequential await calls."
+  },
+  {
+    "id": "Q19",
+    "category": "Refactoring",
+    "question": "How can text chunking in chunker.py be enhanced beyond fixed character length?",
+    "ground_truth": "Implement semantic boundary chunking (splitting by markdown headings, paragraphs, or sentence boundaries) to preserve coherent context within manual sections."
+  },
+  {
+    "id": "Q20",
+    "category": "RAG Technical Troubleshooting",
+    "question": "What is the mandatory safety precaution before replacing part HP-FLTR-05 on EQ-1023?",
+    "ground_truth": "Perform LOTO, isolate hydraulic pump power, and verify the primary pressure gauge reads 0 bar before loosening filter housing fittings."
+  },
+  {
+    "id": "Q21",
+    "category": "RAG Technical Troubleshooting",
+    "question": "What is the tail pulley belt tension specification for CB-200 conveyor (EQ-2045)?",
+    "ground_truth": "The tail pulley belt tension specification for CB-200 is 45 kN using tension bolt assembly CB-BOLT-M20."
+  },
+  {
+    "id": "Q22",
+    "category": "RAG Technical Troubleshooting",
+    "question": "What insulation resistance value is required during Megger testing on motor IM-750 (EQ-3081)?",
+    "ground_truth": "A minimum insulation resistance of 100 MΩ at 1000V DC between stator windings and frame ground."
+  },
+  {
+    "id": "Q23",
+    "category": "RAG Technical Troubleshooting",
+    "question": "What spare part is required when hydraulic fluid leaks from the pump shaft on EQ-1023?",
+    "ground_truth": "Part HP-SEAL-01 (Viton High-Pressure Shaft Seal Ring)."
+  },
+  {
+    "id": "Q24",
+    "category": "RAG Technical Troubleshooting",
+    "question": "What happens when an E-Stop pull-cord switch CB-ESTOP-01 is tripped on EQ-2045?",
+    "ground_truth": "The conveyor drive motor power circuit immediately opens, locking out the drive until the physical pull-cord switch is manually reset at the tail pulley."
+  },
+  {
+    "id": "Q25",
+    "category": "RAG Technical Troubleshooting",
+    "question": "What is the maximum allowable continuous stator temperature for electric motor EQ-3081?",
+    "ground_truth": "The maximum continuous stator winding temperature limit for IM-750 is 120°C."
+  }
+]
