@@ -25,6 +25,14 @@ TICKET_SERVICE_URL = os.getenv("TICKET_SERVICE_URL", "http://127.0.0.1:8006").rs
 RAG_SERVICE_URL = os.getenv("RAG_SERVICE_URL", "http://127.0.0.1:8001").rstrip("/")
 LLM_SERVICE_URL = os.getenv("LLM_SERVICE_URL", "http://127.0.0.1:8007").rstrip("/")
 
+ALLOWED_LLM_MODELS = [
+    "codellama:7b",
+    "qwen:1.8b",
+    "deepseek-r1:1.5b",
+    "starcoder2:3b",
+]
+DEFAULT_LLM_MODEL = ALLOWED_LLM_MODELS[0]
+
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 logger = logging.getLogger("smartfix.orchestrator")
 
@@ -42,6 +50,7 @@ app.add_middleware(
 class OrchestrationRequest(BaseModel):
     question: str = Field(..., description="Troubleshooting question from technician")
     equipment_id: str | None = Field(default=None, description="Optional Equipment ID (e.g., EQ-1023)")
+    model: str | None = Field(default=None, description="Ollama model to use for LLM generation")
 
 
 def extract_equipment_id(text: str, explicit_id: str | None = None) -> str:
@@ -122,6 +131,7 @@ async def orchestrate_request(body: OrchestrationRequest) -> dict[str, Any]:
     if not question:
         raise HTTPException(status_code=400, detail="Question cannot be empty.")
 
+    selected_model = body.model if body.model in ALLOWED_LLM_MODELS else DEFAULT_LLM_MODEL
     eq_id = extract_equipment_id(question, body.equipment_id)
     execution_trace = []
     total_start = time.time()
@@ -164,6 +174,7 @@ async def orchestrate_request(body: OrchestrationRequest) -> dict[str, Any]:
         # Step 6: LLM Gateway Service
         llm_input = {
             "question": question,
+            "model": selected_model,
             "equipment_info": eq_data,
             "history_info": hist_data,
             "rag_info": rag_data,
@@ -196,7 +207,7 @@ async def orchestrate_request(body: OrchestrationRequest) -> dict[str, Any]:
         "question": question,
         "equipment_id": eq_id,
         "answer": llm_data.get("answer", "No answer generated."),
-        "model": llm_data.get("model", "codellama"),
+        "model": llm_data.get("model", selected_model),
         "safety_decision": safety_decision,
         "equipment": eq_data,
         "history": hist_data,

@@ -17,7 +17,7 @@ export const FLOW_STAGE_DEFS = [
   },
   {
     id: "code-llama",
-    label: "Code Llama",
+    label: "LLM Generation",
     icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 9l-3 3 3 3"/><path d="M16 9l3 3-3 3"/><path d="M13 6l-2 12"/></svg>`,
   },
   {

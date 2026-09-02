@@ -48,10 +48,6 @@ const vectorPreview = computed(() => {
           <span class="info-val font-mono">{{ vectorData.vector_id }}</span>
         </div>
         <div class="info-item">
-          <span class="info-label">Model</span>
-          <span class="info-val">{{ chunk.embedding_model || 'nomic-embed-text' }}</span>
-        </div>
-        <div class="info-item">
           <span class="info-label">Dimensions</span>
           <span class="info-val">{{ vectorData.dimensions || 384 }}</span>
         </div>

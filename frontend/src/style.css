@@ -89,6 +89,43 @@ html, body {
 /* ---------------------------------------------------------------------------
    Question Panel Controls
    --------------------------------------------------------------------------- */
+.model-selector {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  margin-bottom: 0.85rem;
+}
+
+.model-selector-label {
+  color: var(--text-dim);
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+.model-select {
+  flex: 1;
+  max-width: 280px;
+  padding: 0.45rem 0.75rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  background: var(--bg-input);
+  color: var(--text-main);
+  font-family: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+
+.model-select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.model-select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .question-input {
   width: 100%;
   min-height: 130px;

@@ -14,6 +14,7 @@ import RAGRetrievedContextViewer from "./components/admin/RAGRetrievedContextVie
 import SafetyAndEquipmentViewer from "./components/admin/SafetyAndEquipmentViewer.vue";
 
 import { callAskApi } from "./api/askApi.js";
+import { DEFAULT_LLM_MODEL, LLM_MODELS } from "./constants/models.js";
 import {
   deleteDocument,
   fetchDocumentChunks,
@@ -29,6 +30,7 @@ const activeTab = ref("technician");
 
 // --- Technician & Orchestrated State ---
 const question = ref("EQ-1023 has low hydraulic pressure. How do I fix it?");
+const selectedModel = ref(DEFAULT_LLM_MODEL);
 const answer = ref("");
 const model = ref("");
 const errorMessage = ref("");
@@ -56,6 +58,7 @@ const sampleQuestions = [
 const flowStages = computed(() =>
   FLOW_STAGE_DEFS.map((stage) => ({
     ...stage,
+    label: stage.id === "code-llama" ? selectedModel.value : stage.label,
     status: flowState.value[stage.id],
   }))
 );
@@ -137,7 +140,7 @@ async function askSmartFix() {
 
   try {
     advanceFlowTo("ollama-request");
-    const apiPromise = callAskApi(text);
+    const apiPromise = callAskApi(text, selectedModel.value);
     advanceFlowTo("code-llama");
 
     const data = await apiPromise;
@@ -148,7 +151,7 @@ async function askSmartFix() {
     advanceFlowTo("response-displayed");
 
     answer.value = data.answer || "No response received.";
-    model.value = data.model || "codellama";
+    model.value = data.model || selectedModel.value;
 
     if (data.execution_trace) {
       orchestrationData.value = data;
@@ -302,13 +305,15 @@ onMounted(() => {
       <div v-if="activeTab === 'technician'" class="view-container">
         <div class="page-header">
           <h2>Equipment Troubleshooting</h2>
-          <p>Ask technical questions about equipment and receive diagnostic guidance powered by Code Llama.</p>
+          <p>Ask technical questions about equipment and receive diagnostic guidance powered by local Ollama models.</p>
         </div>
 
         <div class="layout">
           <div class="main-column">
             <QuestionPanel
               v-model="question"
+              v-model:selected-model="selectedModel"
+              :llm-models="LLM_MODELS"
               :is-loading="isLoading"
               :error-message="errorMessage"
               :sample-questions="sampleQuestions"

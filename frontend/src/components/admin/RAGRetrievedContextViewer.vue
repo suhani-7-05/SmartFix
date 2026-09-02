@@ -21,24 +21,6 @@ defineProps({
     </div>
 
     <div v-else class="rag-content">
-      <!-- Query Embedding Metadata -->
-      <div v-if="ragData.query_embedding_metadata" class="embedding-bar">
-        <div class="embed-meta">
-          <span class="label">Query Vector Model:</span>
-          <span class="val font-mono">{{ ragData.query_embedding_metadata.model }}</span>
-        </div>
-        <div class="embed-meta">
-          <span class="label">Dimensions:</span>
-          <span class="val font-mono">{{ ragData.query_embedding_metadata.dimensions }}</span>
-        </div>
-        <div class="embed-meta">
-          <span class="label">Vector Sample:</span>
-          <span class="val font-mono">
-            [{{ ragData.query_embedding_metadata.vector_preview?.slice(0, 4).map(n => n.toFixed(3)).join(', ') }}...]
-          </span>
-        </div>
-      </div>
-
       <!-- Top-K Retrieved Chunks Table -->
       <div class="chunks-section">
         <span class="section-title">Retrieved Chunks & Similarity Scores</span>
@@ -72,7 +54,7 @@ defineProps({
 
       <!-- Constructed LLM Context Box -->
       <div class="context-section">
-        <span class="section-title">Constructed Prompt Context Sent to Code Llama</span>
+        <span class="section-title">Constructed Prompt Context Sent to LLM</span>
         <pre class="context-box">{{ ragData.constructed_context }}</pre>
       </div>
     </div>
@@ -119,31 +101,6 @@ defineProps({
   display: flex;
   flex-direction: column;
   gap: 1rem;
-}
-
-.embedding-bar {
-  display: flex;
-  gap: 1.5rem;
-  background: rgba(0, 0, 0, 0.2);
-  border: 1px solid var(--border-light);
-  padding: 0.6rem 0.85rem;
-  border-radius: var(--radius);
-  font-size: 0.78rem;
-}
-
-.embed-meta {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-}
-
-.label {
-  color: var(--text-dim);
-}
-
-.val {
-  color: var(--accent);
-  font-weight: 500;
 }
 
 .font-mono {

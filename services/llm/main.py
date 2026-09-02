@@ -14,8 +14,16 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 OLLAMA_BASE_URL = os.getenv("OLLAMA_URL", "http://localhost:11434").rstrip("/")
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen2.5-coder:1.5b")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "codellama:7b")
 OLLAMA_TIMEOUT = float(os.getenv("OLLAMA_TIMEOUT_SECONDS", "120"))
+
+ALLOWED_MODELS = [
+    "codellama:7b",
+    "qwen:1.8b",
+    "deepseek-r1:1.5b",
+    "starcoder2:3b",
+]
+DEFAULT_MODEL = ALLOWED_MODELS[0]
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 logger = logging.getLogger("smartfix.llm-service")
@@ -31,8 +39,20 @@ app.add_middleware(
 )
 
 
+def resolve_model(requested_model: str | None) -> str:
+    fallback = OLLAMA_MODEL if OLLAMA_MODEL in ALLOWED_MODELS else DEFAULT_MODEL
+    model = requested_model or fallback
+    if model not in ALLOWED_MODELS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported model '{model}'. Allowed models: {', '.join(ALLOWED_MODELS)}",
+        )
+    return model
+
+
 class LLMGenerateRequest(BaseModel):
     question: str = Field(..., description="User troubleshooting question")
+    model: str | None = Field(default=None, description="Ollama model to use for generation")
     equipment_info: dict[str, Any] = Field(default_factory=dict)
     history_info: dict[str, Any] = Field(default_factory=dict)
     rag_info: dict[str, Any] = Field(default_factory=dict)
@@ -118,8 +138,9 @@ async def health_check():
 @app.post("/llm/generate")
 async def generate_response(body: LLMGenerateRequest) -> dict[str, Any]:
     prompt = build_augmented_prompt(body)
+    model = resolve_model(body.model)
     url = f"{OLLAMA_BASE_URL}/api/generate"
-    payload = {"model": OLLAMA_MODEL, "prompt": prompt, "stream": False}
+    payload = {"model": model, "prompt": prompt, "stream": False}
 
     try:
         async with httpx.AsyncClient(timeout=OLLAMA_TIMEOUT) as client:
@@ -130,16 +151,16 @@ async def generate_response(body: LLMGenerateRequest) -> dict[str, Any]:
             if answer:
                 return {
                     "answer": answer,
-                    "model": OLLAMA_MODEL,
+                    "model": model,
                     "prompt_length": len(prompt),
-                    "execution_mode": "ollama-codellama",
+                    "execution_mode": "ollama",
                 }
     except Exception as exc:
         logger.warning("Ollama call failed (%s). Generating fallback LLM synthesis.", exc)
         fallback_answer = generate_fallback_synthesis(body, prompt)
         return {
             "answer": fallback_answer,
-            "model": f"{OLLAMA_MODEL} (offline-synthesis)",
+            "model": f"{model} (offline-synthesis)",
             "prompt_length": len(prompt),
             "execution_mode": "offline-fallback-synthesis",
         }
@@ -147,7 +168,7 @@ async def generate_response(body: LLMGenerateRequest) -> dict[str, Any]:
     fallback_answer = generate_fallback_synthesis(body, prompt)
     return {
         "answer": fallback_answer,
-        "model": f"{OLLAMA_MODEL} (offline-synthesis)",
+        "model": f"{model} (offline-synthesis)",
         "prompt_length": len(prompt),
         "execution_mode": "offline-fallback-synthesis",
     }

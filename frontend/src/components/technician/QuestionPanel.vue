@@ -4,6 +4,14 @@ defineProps({
     type: String,
     default: "",
   },
+  selectedModel: {
+    type: String,
+    required: true,
+  },
+  llmModels: {
+    type: Array,
+    default: () => [],
+  },
   isLoading: {
     type: Boolean,
     default: false,
@@ -18,7 +26,7 @@ defineProps({
   },
 });
 
-const emit = defineEmits(["update:modelValue", "ask"]);
+const emit = defineEmits(["update:modelValue", "update:selectedModel", "ask"]);
 
 function onInput(event) {
   emit("update:modelValue", event.target.value);
@@ -33,6 +41,10 @@ function submitOnShortcut(event) {
     emit("ask");
   }
 }
+
+function onModelChange(event) {
+  emit("update:selectedModel", event.target.value);
+}
 </script>
 
 <template>
@@ -40,6 +52,21 @@ function submitOnShortcut(event) {
     <div class="panel-header">
       <h2 class="panel-title">Ask a question</h2>
       <span class="panel-hint">⌘/Ctrl + Enter to submit</span>
+    </div>
+
+    <div class="model-selector">
+      <label for="llm-model-select" class="model-selector-label">LLM model</label>
+      <select
+        id="llm-model-select"
+        class="model-select"
+        :value="selectedModel"
+        :disabled="isLoading"
+        @change="onModelChange"
+      >
+        <option v-for="llm in llmModels" :key="llm.id" :value="llm.id">
+          {{ llm.label }}
+        </option>
+      </select>
     </div>
 
     <label for="question-input" class="sr-only">Technical question</label>
