@@ -1,0 +1,95 @@
+{
+  "metadata": {
+    "timestamp": "2026-09-03 01:53:07",
+    "total_tasks": 1,
+    "environment": "Local CPU (Windows 11 / Python 3.12 / Ollama)"
+  },
+  "models": {
+    "codellama": {
+      "name": "Code Llama (7B)",
+      "avg_accuracy_pct": 10.0,
+      "avg_relevance": 0.4,
+      "avg_retrieval_similarity": 0.6822,
+      "hallucination_rate_pct": 0.0,
+      "code_pass_rate_pct": 0.0,
+      "avg_latency_sec": 21.76,
+      "min_latency_sec": 21.76,
+      "max_latency_sec": 21.76,
+      "total_prompt_tokens": 739,
+      "total_eval_tokens": 120,
+      "avg_cpu_percent": 59.7,
+      "avg_ram_mb": 14028.9
+    },
+    "starcoder2:3b": {
+      "name": "StarCoder2 (3B)",
+      "avg_accuracy_pct": 0.0,
+      "avg_relevance": 0.2037,
+      "avg_retrieval_similarity": 0.6822,
+      "hallucination_rate_pct": 0.0,
+      "code_pass_rate_pct": 0.0,
+      "avg_latency_sec": 33.06,
+      "min_latency_sec": 33.06,
+      "max_latency_sec": 33.06,
+      "total_prompt_tokens": 698,
+      "total_eval_tokens": 120,
+      "avg_cpu_percent": 59.9,
+      "avg_ram_mb": 14793.3
+    },
+    "qwen2.5-coder:1.5b": {
+      "name": "Qwen2.5-Coder (1.5B)",
+      "avg_accuracy_pct": 0.0,
+      "avg_relevance": 0.5085,
+      "avg_retrieval_similarity": 0.6822,
+      "hallucination_rate_pct": 0.0,
+      "code_pass_rate_pct": 0.0,
+      "avg_latency_sec": 16.52,
+      "min_latency_sec": 16.52,
+      "max_latency_sec": 16.52,
+      "total_prompt_tokens": 593,
+      "total_eval_tokens": 120,
+      "avg_cpu_percent": 62.3,
+      "avg_ram_mb": 14168.8
+    }
+  },
+  "task_details": [
+    {
+      "task_id": "TASK-01",
+      "category": "appliance_troubleshooting",
+      "model_id": "codellama",
+      "model_name": "Code Llama (7B)",
+      "latency_sec": 21.76,
+      "accuracy": 10.0,
+      "relevance": 0.4,
+      "top_similarity": 0.6822,
+      "hallucination": false,
+      "code_passed": null,
+      "answer_preview": "The issue you're experiencing with your microwave turntable rotating but the food remaining cold is likely due to a problem with the microwave oven's heating element. Here's a step-by-step diagnostic process to help you troubleshoot the issue:\n\n1. Sa"
+    },
+    {
+      "task_id": "TASK-01",
+      "category": "appliance_troubleshooting",
+      "model_id": "starcoder2:3b",
+      "model_name": "StarCoder2 (3B)",
+      "latency_sec": 33.06,
+      "accuracy": 0.0,
+      "relevance": 0.2037,
+      "top_similarity": 0.6822,
+      "hallucination": false,
+      "code_passed": null,
+      "answer_preview": "You are SmartFix, an expert AI equipment troubleshooting assistant.\nTarget Equipment: HA-MICRO-01 - Panasonic Inverter Microwave/Convection Oven\nSafety Engine: Decision=WARNING, Warnings=['WARNING: Ensure unit is disconnected from mains before cleani"
+    },
+    {
+      "task_id": "TASK-01",
+      "category": "appliance_troubleshooting",
+      "model_id": "qwen2.5-coder:1.5b",
+      "model_name": "Qwen2.5-Coder (1.5B)",
+      "latency_sec": 16.52,
+      "accuracy": 0.0,
+      "relevance": 0.5085,
+      "top_similarity": 0.6822,
+      "hallucination": false,
+      "code_passed": null,
+      "answer_preview": "**Diagnostic Answer:**\n\n**Safety Precautions:**\n1. **Ensure Unit is Disconnected from Mains:** Before cleaning the waveguide or turntable drive, ensure the microwave is completely disconnected from the mains.\n2. **Clean Mica Waveguide Cover:** Use a "
+    }
+  ]
+}

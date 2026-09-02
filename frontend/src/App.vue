@@ -29,7 +29,7 @@ import { FLOW_STAGE_DEFS, createInitialFlowState } from "./flowStages.js";
 const activeTab = ref("technician");
 
 // --- Technician & Orchestrated State ---
-const question = ref("EQ-1023 has low hydraulic pressure. How do I fix it?");
+const question = ref("Why is my microwave running and turntable spinning, but food does not heat?");
 const selectedModel = ref(DEFAULT_LLM_MODEL);
 const answer = ref("");
 const model = ref("");
@@ -50,9 +50,12 @@ const orchestrationData = ref({
 });
 
 const sampleQuestions = [
-  "EQ-1023 has low hydraulic pressure. How do I fix it?",
-  "How do I clear a jammed belt on conveyor EQ-2045?",
-  "EQ-3081 stator temperature high. Can I open terminal box while live?",
+  "My microwave runs and light turns on, but food stays cold. How do I troubleshoot?",
+  "Toaster lever pops back up immediately and will not stay latched down.",
+  "Can I open the microwave casing while plugged in to test the capacitor?",
+  "Washing machine is showing Error Err2 and stopped with a tub full of water.",
+  "Air fryer display is flashing Error E1 and stopped heating.",
+  "Range hood chimney makes a loud rattling sound on high speed.",
 ];
 
 const flowStages = computed(() =>

@@ -100,7 +100,7 @@ Spare Parts:
     vec_sample = vector_store.get_vector(f"vec_{doc_id}_0")
     print(f"   Retrieved vector metadata preview: {vec_sample}")
 
-    print("\n✅ Exercise 2 Pipeline Test Completed Successfully!")
+    print("\n[SUCCESS] Exercise 2 Pipeline Test Completed Successfully!")
 
 
 if __name__ == "__main__":

@@ -16,22 +16,35 @@ async def ingest_manuals():
     vector_store = VectorStore()
     
     uploads_dir = PROJECT_ROOT / "data" / "documents" / "uploads"
-    files = [
-        uploads_dir / "hydraulic_pump_hp5000_manual.md",
-        uploads_dir / "conveyor_belt_cb200_safety.md",
-        uploads_dir / "industrial_motor_im750_spec.md",
-    ]
     
+    # Supported file extensions for ingestion
+    supported_exts = {".pdf", ".md", ".txt"}
+    files = sorted([p for p in uploads_dir.iterdir() if p.suffix.lower() in supported_exts])
+    
+    # Clean up any incomplete / pending document entries
+    with db.get_connection() as conn:
+        conn.execute("DELETE FROM documents WHERE status != 'processed'")
+        conn.execute("DELETE FROM chunks WHERE document_id NOT IN (SELECT id FROM documents)")
+
+    existing_docs = {d["filename"]: d["id"] for d in db.list_documents() if d.get("status") == "processed"}
+
     for f_path in files:
-        if not f_path.exists():
-            continue
         filename = f_path.name
         ext = f_path.suffix.lower()
+
+        # If already ingested, skip to prevent duplicates
+        if filename in existing_docs:
+            print(f"[*] Skipping already processed: {filename}")
+            continue
+
         print(f"Ingesting {filename}...")
-        
+
         extracted = extract_text(f_path, ext)
         chunks = chunk_text(extracted, chunk_size=400, overlap=50)
-        
+        # Cap chunks to top 40 to ensure fast vector search and balanced retrieval
+        if len(chunks) > 40:
+            chunks = chunks[:40]
+
         doc_rec = db.create_document(filename, ext, str(f_path))
         doc_id = doc_rec["id"]
         

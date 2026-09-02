@@ -95,9 +95,85 @@ async def evaluate_safety(body: SafetyEvaluationRequest) -> dict[str, Any]:
                 "Wear protective safety goggles and heat-resistant gloves.",
             ])
 
+    # Rule 4: Microwave High-Voltage Capacitor & Radiation Hazard (Household Appliance)
+    if "microwave" in q_lower or eq_id == "HA-MICRO-01":
+        # Check for lethal capacitor or opening casing while energized
+        if "capacitor" in q_lower or "casing" in q_lower or "cabinet" in q_lower or "plugged in" in q_lower or "live" in q_lower:
+            decision = "BLOCKED"
+            rules_triggered.append("RULE-MW-01: Lethal High-Voltage Capacitor Hazard (>2,000V DC)")
+            warnings.append("BLOCKED: Microwave high-voltage capacitor retains lethal 2,000V–4,000V DC charge even when unplugged. Direct contact can be fatal.")
+            required_precautions.extend([
+                "Unplug unit from AC power socket immediately.",
+                "Discharge high-voltage capacitor using a 20k-Ohm 20W insulated HV discharge resistor probe before touching any internal part.",
+                "Never test microwave with cabinet removed while connected to AC power.",
+            ])
+        elif "door open" in q_lower or "interlock" in q_lower or "bypass" in q_lower:
+            decision = "BLOCKED"
+            rules_triggered.append("RULE-MW-02: Microwave Radiation Exposure Hazard (2450 MHz)")
+            warnings.append("BLOCKED: Operating microwave with door open or defeated interlock switches causes severe microwave radiation exposure.")
+            required_precautions.extend([
+                "Never defeat, bypass, or tamper with door safety interlock switches.",
+                "Inspect door seal and choke cavity for physical damage or gaps.",
+                "Perform RF leakage survey before returning unit to service (limit < 5mW/cm²).",
+            ])
+        elif decision != "BLOCKED":
+            decision = "WARNING"
+            rules_triggered.append("RULE-MW-03: General Microwave Electrical Safety")
+            warnings.append("WARNING: Ensure unit is disconnected from mains before cleaning waveguide or turntable drive.")
+            required_precautions.extend([
+                "Unplug microwave from AC socket.",
+                "Clean mica waveguide cover with damp cloth; do not operate if mica sheet is carbonized or burnt.",
+            ])
+
+    # Rule 5: Washing Machine Drum & Water Flood Hazard (Household Appliance)
+    if "washing machine" in q_lower or "washer" in q_lower or eq_id == "HA-WASH-04":
+        if "bypass door" in q_lower or "spin" in q_lower and ("open" in q_lower or "hand" in q_lower):
+            decision = "BLOCKED"
+            rules_triggered.append("RULE-WM-01: High-Speed Spinning Drum Entanglement Hazard")
+            warnings.append("BLOCKED: Attempting to bypass door lock during spin cycle (1200 RPM) creates severe limb entanglement hazard.")
+            required_precautions.extend([
+                "Wait for drum to come to a complete standstill (minimum 2 minutes after power off).",
+                "Use the manual emergency drain/door release cord located behind the drain pump filter access door.",
+                "Never force open the electronic PTC thermal latch.",
+            ])
+        elif decision != "BLOCKED":
+            decision = "WARNING"
+            rules_triggered.append("RULE-WM-02: Water Valve Pressure & Shock Hazard")
+            warnings.append("WARNING: Disconnect water supply taps and unplug unit before servicing drain pump filter or inlet solenoids.")
+            required_precautions.extend([
+                "Turn off cold and hot water inlet supply taps.",
+                "Place a shallow tray under drain pump filter before unscrewing cap to catch residual water.",
+                "Disconnect 230V mains plug.",
+            ])
+
+    # Rule 6: Toaster / Air Fryer / Convection Oven Thermal Hazards (Household Appliances)
+    if any(app_word in q_lower for app_word in ["toaster", "air fryer", "airfryer", "oven"]) or eq_id in ["HA-TOAST-02", "HA-AIRFRY-03", "HA-OVEN-05"]:
+        if decision != "BLOCKED":
+            decision = "WARNING"
+            rules_triggered.append("RULE-TH-01: High Temperature Burn & Heating Element Shock Hazard")
+            warnings.append("WARNING: Internal heating elements operate above 200°C (400°F). Severe burn and electrical shock hazard.")
+            required_precautions.extend([
+                "Unplug appliance from wall socket.",
+                "Allow appliance to cool down completely (minimum 30–45 minutes) before inspection or disassembly.",
+                "Never insert metal utensils (forks/knives) into toaster slots while connected to power.",
+                "Clean crumb trays and grease baskets regularly to prevent grease ignition fires.",
+            ])
+
+    # Rule 7: Range Hood / Kitchen Chimney Grease Hazard
+    if "chimney" in q_lower or "range hood" in q_lower or "hood" in q_lower or eq_id == "HA-CHIM-06":
+        if decision != "BLOCKED":
+            decision = "WARNING"
+            rules_triggered.append("RULE-CHIM-01: Range Hood Grease Fire & Blower Motor Hazard")
+            warnings.append("WARNING: Accumulation of cooking grease in baffle filters creates a fire ignition hazard.")
+            required_precautions.extend([
+                "Switch off circuit breaker or unplug hood before removing filters.",
+                "Soak aluminum or stainless steel baffle filters in warm degreaser solution monthly.",
+                "Ensure blower motor is fully stopped before inspecting internal squirrel-cage impeller.",
+            ])
+
     # Default ALLOWED precautions
     if not required_precautions:
-        required_precautions.append("Wear standard industrial PPE (safety glasses, steel-toed boots, protective gloves).")
+        required_precautions.append("Follow manufacturer operating instructions and ensure appliance is unplugged before cleaning.")
 
     return {
         "equipment_id": eq_id,

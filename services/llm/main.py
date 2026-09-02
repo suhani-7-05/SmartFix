@@ -14,16 +14,21 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 OLLAMA_BASE_URL = os.getenv("OLLAMA_URL", "http://localhost:11434").rstrip("/")
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "codellama:7b")
-OLLAMA_TIMEOUT = float(os.getenv("OLLAMA_TIMEOUT_SECONDS", "120"))
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "codellama")
+OLLAMA_TIMEOUT = float(os.getenv("OLLAMA_TIMEOUT_SECONDS", "180"))
 
 ALLOWED_MODELS = [
     "codellama:7b",
+    "codellama",
+    "codellama:latest",
+    "starcoder2:3b",
+    "starcoder2",
+    "qwen2.5-coder:1.5b",
+    "qwen2.5-coder",
     "qwen:1.8b",
     "deepseek-r1:1.5b",
-    "starcoder2:3b",
 ]
-DEFAULT_MODEL = ALLOWED_MODELS[0]
+DEFAULT_MODEL = "codellama"
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 logger = logging.getLogger("smartfix.llm-service")
@@ -140,31 +145,42 @@ async def generate_response(body: LLMGenerateRequest) -> dict[str, Any]:
     prompt = build_augmented_prompt(body)
     model = resolve_model(body.model)
     url = f"{OLLAMA_BASE_URL}/api/generate"
-    payload = {"model": model, "prompt": prompt, "stream": False}
 
-    try:
-        async with httpx.AsyncClient(timeout=OLLAMA_TIMEOUT) as client:
-            resp = await client.post(url, json=payload)
-            resp.raise_for_status()
-            data = resp.json()
-            answer = data.get("response", "").strip()
-            if answer:
-                return {
-                    "answer": answer,
-                    "model": model,
-                    "prompt_length": len(prompt),
-                    "execution_mode": "ollama",
-                }
-    except Exception as exc:
-        logger.warning("Ollama call failed (%s). Generating fallback LLM synthesis.", exc)
-        fallback_answer = generate_fallback_synthesis(body, prompt)
-        return {
-            "answer": fallback_answer,
-            "model": f"{model} (offline-synthesis)",
-            "prompt_length": len(prompt),
-            "execution_mode": "offline-fallback-synthesis",
+    candidate_models = [model]
+    if ":" in model:
+        base_name = model.split(":")[0]
+        if base_name not in candidate_models:
+            candidate_models.append(base_name)
+    elif f"{model}:latest" not in candidate_models:
+        candidate_models.append(f"{model}:latest")
+
+    for cand in candidate_models:
+        payload = {
+            "model": cand,
+            "prompt": prompt,
+            "stream": False,
+            "options": {"num_predict": 300, "temperature": 0.2},
         }
+        try:
+            async with httpx.AsyncClient(timeout=OLLAMA_TIMEOUT) as client:
+                resp = await client.post(url, json=payload)
+                if resp.status_code == 404:
+                    logger.info("Model '%s' not found on Ollama, trying next candidate...", cand)
+                    continue
+                resp.raise_for_status()
+                data = resp.json()
+                answer = data.get("response", "").strip()
+                if answer:
+                    return {
+                        "answer": answer,
+                        "model": cand,
+                        "prompt_length": len(prompt),
+                        "execution_mode": "ollama",
+                    }
+        except Exception as exc:
+            logger.warning("Ollama call with model '%s' failed (%s).", cand, exc)
 
+    logger.warning("All Ollama model candidates failed. Generating fallback LLM synthesis.")
     fallback_answer = generate_fallback_synthesis(body, prompt)
     return {
         "answer": fallback_answer,

@@ -27,11 +27,16 @@ LLM_SERVICE_URL = os.getenv("LLM_SERVICE_URL", "http://127.0.0.1:8007").rstrip("
 
 ALLOWED_LLM_MODELS = [
     "codellama:7b",
+    "codellama",
+    "codellama:latest",
+    "starcoder2:3b",
+    "starcoder2",
+    "qwen2.5-coder:1.5b",
+    "qwen2.5-coder",
     "qwen:1.8b",
     "deepseek-r1:1.5b",
-    "starcoder2:3b",
 ]
-DEFAULT_LLM_MODEL = ALLOWED_LLM_MODELS[0]
+DEFAULT_LLM_MODEL = "codellama"
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 logger = logging.getLogger("smartfix.orchestrator")
@@ -56,11 +61,39 @@ class OrchestrationRequest(BaseModel):
 def extract_equipment_id(text: str, explicit_id: str | None = None) -> str:
     if explicit_id:
         return explicit_id.upper()
-    match = re.search(r"\b(EQ-\d{4})\b", text, re.IGNORECASE)
-    if match:
-        return match.group(1).upper()
-    # Default to EQ-1023 if unspecified
-    return "EQ-1023"
+
+    # Match explicit IDs like HA-MICRO-01 or EQ-1023
+    match_ha = re.search(r"\b(HA-[A-Z]+-\d{2})\b", text, re.IGNORECASE)
+    if match_ha:
+        return match_ha.group(1).upper()
+
+    match_eq = re.search(r"\b(EQ-\d{4})\b", text, re.IGNORECASE)
+    if match_eq:
+        return match_eq.group(1).upper()
+
+    # Keyword-based natural language mapping for domestic appliances
+    t_lower = text.lower()
+    if "microwave" in t_lower:
+        return "HA-MICRO-01"
+    elif "toaster" in t_lower:
+        return "HA-TOAST-02"
+    elif "air fryer" in t_lower or "airfryer" in t_lower:
+        return "HA-AIRFRY-03"
+    elif "washing machine" in t_lower or "washer" in t_lower or "drum" in t_lower:
+        return "HA-WASH-04"
+    elif "oven" in t_lower:
+        return "HA-OVEN-05"
+    elif "chimney" in t_lower or "range hood" in t_lower or "hood" in t_lower:
+        return "HA-CHIM-06"
+    elif "pump" in t_lower or "hydraulic" in t_lower:
+        return "EQ-1023"
+    elif "conveyor" in t_lower or "belt" in t_lower:
+        return "EQ-2045"
+    elif "motor" in t_lower:
+        return "EQ-3081"
+
+    # Default to HA-MICRO-01 for household appliance queries
+    return "HA-MICRO-01"
 
 
 async def call_service_endpoint(
@@ -88,7 +121,7 @@ async def call_service_endpoint(
         if method.upper() == "GET":
             resp = await client.get(url, timeout=10.0)
         else:
-            resp = await client.post(url, json=json_body, timeout=120.0)
+            resp = await client.post(url, json=json_body, timeout=180.0)
 
         duration = round((time.time() - start_t) * 1000, 2)
         trace["duration_ms"] = duration
@@ -218,3 +251,32 @@ async def orchestrate_request(body: OrchestrationRequest) -> dict[str, Any]:
         "total_duration_ms": total_duration_ms,
         "execution_trace": execution_trace,
     }
+
+
+# Transparent gateway proxies for frontend tabs
+@app.get("/kb/stats")
+async def proxy_kb_stats():
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        r = await client.get(f"{RAG_SERVICE_URL}/kb/stats")
+        return r.json()
+
+
+@app.get("/kb/documents")
+async def proxy_kb_documents():
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        r = await client.get(f"{RAG_SERVICE_URL}/kb/documents")
+        return r.json()
+
+
+@app.get("/equipment")
+async def proxy_equipment():
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        r = await client.get(f"{EQUIPMENT_SERVICE_URL}/equipment")
+        return r.json()
+
+
+@app.get("/tickets")
+async def proxy_tickets():
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        r = await client.get(f"{TICKET_SERVICE_URL}/tickets")
+        return r.json()
