@@ -10,6 +10,18 @@ export default defineConfig({
         target: "http://127.0.0.1:8000",
         changeOrigin: true,
       },
+      "/orchestrate": {
+        target: "http://127.0.0.1:8000",
+        changeOrigin: true,
+      },
+      "/compare": {
+        target: "http://127.0.0.1:8000",
+        changeOrigin: true,
+      },
+      "/benchmark": {
+        target: "http://127.0.0.1:8000",
+        changeOrigin: true,
+      },
       "/health": {
         target: "http://127.0.0.1:8000",
         changeOrigin: true,

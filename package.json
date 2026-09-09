@@ -1,0 +1,13 @@
+{
+  "name": "smartfix-root",
+  "version": "1.0.0",
+  "private": true,
+  "description": "SmartFix root workspace scripts",
+  "scripts": {
+    "dev": "npm --prefix frontend run dev",
+    "build": "npm --prefix frontend run build",
+    "preview": "npm --prefix frontend run preview",
+    "services": "python run_all.py",
+    "start:services": "powershell -ExecutionPolicy Bypass -File ./start_services.ps1"
+  }
+}

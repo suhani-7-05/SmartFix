@@ -15,9 +15,10 @@ $services = @(
 
 $processes = @()
 
+$cwd = (Get-Location).Path
 foreach ($svc in $services) {
     Write-Host "-> Launching $($svc.Name) on port $($svc.Port)..." -ForegroundColor Green
-    $p = Start-Process -FilePath "python" -ArgumentList "-m uvicorn services.$($svc.Name).main:app --port $($svc.Port) --reload" -PassThru
+    $p = Start-Process -FilePath "python" -ArgumentList "-m uvicorn services.$($svc.Name).main:app --host 127.0.0.1 --port $($svc.Port)" -WorkingDirectory $cwd -PassThru
     $processes += $p
 }
 

@@ -51,6 +51,29 @@ defineEmits(["select-tab"]);
 
         <button
           class="nav-button"
+          :class="{ active: activeTab === 'compare' }"
+          @click="$emit('select-tab', 'compare')"
+        >
+          <svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="7" height="18" rx="1" />
+            <rect x="14" y="3" width="7" height="18" rx="1" />
+          </svg>
+          <span>Compare 3 Models</span>
+        </button>
+
+        <button
+          class="nav-button"
+          :class="{ active: activeTab === 'benchmark' }"
+          @click="$emit('select-tab', 'benchmark')"
+        >
+          <svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 20V10M12 20V4M6 20v-6" />
+          </svg>
+          <span>7-Category Benchmark</span>
+        </button>
+
+        <button
+          class="nav-button"
           :class="{ active: activeTab === 'admin' }"
           @click="$emit('select-tab', 'admin')"
         >

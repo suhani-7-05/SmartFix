@@ -1,10 +1,14 @@
 # SmartFix — AI-Powered DevOps Equipment Troubleshooting Platform
 
+> 📘 **Comprehensive Documentation**: For the complete start-to-finish architectural rationale, Week 3 & Week 4 objective implementations, Mermaid flowcharts, and cross-platform (Linux/macOS/Windows) setup instructions, see the master guide: **[COMPLETE_PROJECT_GUIDE_WEEK3_WEEK4.md](file:///c:/Users/suhan/Desktop/SmartFix/SmartFix/COMPLETE_PROJECT_GUIDE_WEEK3_WEEK4.md)**.
+
 SmartFix is an AI-powered equipment troubleshooting and maintenance platform designed for DevOps environments.
 
-It provides two tailored interfaces:
-1. **Technician Interface**: A clean, intuitive troubleshooting dashboard showing diagnosis, recommended actions, safety precautions, spare-part availability, and automated service tickets.
-2. **Admin AI/DevOps Observability Dashboard**: A comprehensive observability dashboard exposing real step-by-step orchestrator execution traces, RAG vector similarity search, query embeddings, retrieved context, deterministic safety rules, equipment metadata, maintenance history, spare parts inventory, and LLM gateway metrics.
+It provides four tailored interfaces:
+1. **Technician Troubleshooting**: Intuitive diagnostic interface with model switching (`Qwen 2.5 Coder 1.5B`, `Code Llama 7B`, `StarCoder2 3B`), safety alerts, spare parts inventory, and automated service tickets.
+2. **Compare 3 Models**: Real-time side-by-side execution comparing Code Llama, StarCoder2, and Qwen 2.5 Coder on identical prompts with latency and token throughput readouts.
+3. **7-Category Evaluation Benchmark Dashboard**: Academic evaluation scorecard displaying category-by-category metrics across all 7 software engineering categories and answering all 7 analytical questions from Professor Kiran.
+4. **Admin AI/DevOps Observability Dashboard**: Comprehensive observability dashboard exposing real step-by-step orchestrator execution traces, RAG vector similarity search, query embeddings, retrieved context, deterministic safety rules, equipment metadata, maintenance history, spare parts inventory, and LLM gateway metrics.
 
 ---
 

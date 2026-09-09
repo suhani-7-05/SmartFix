@@ -14,7 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 OLLAMA_BASE_URL = os.getenv("OLLAMA_URL", "http://localhost:11434").rstrip("/")
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "codellama")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen2.5-coder:1.5b")
 OLLAMA_TIMEOUT = float(os.getenv("OLLAMA_TIMEOUT_SECONDS", "180"))
 
 ALLOWED_MODELS = [
@@ -28,7 +28,13 @@ ALLOWED_MODELS = [
     "qwen:1.8b",
     "deepseek-r1:1.5b",
 ]
-DEFAULT_MODEL = "codellama"
+DEFAULT_MODEL = "qwen2.5-coder:1.5b"
+
+BENCHMARK_MODELS = [
+    {"id": "codellama:latest", "alias": "codellama", "name": "Code Llama (7B)"},
+    {"id": "starcoder2:3b", "alias": "starcoder2", "name": "StarCoder2 (3B)"},
+    {"id": "qwen2.5-coder:1.5b", "alias": "qwen2.5-coder", "name": "Qwen 2.5 Coder (1.5B)"},
+]
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 logger = logging.getLogger("smartfix.llm-service")
@@ -47,6 +53,14 @@ app.add_middleware(
 def resolve_model(requested_model: str | None) -> str:
     fallback = OLLAMA_MODEL if OLLAMA_MODEL in ALLOWED_MODELS else DEFAULT_MODEL
     model = requested_model or fallback
+    m_lower = model.lower()
+    if "codellama" in m_lower:
+        return "codellama:latest"
+    elif "starcoder" in m_lower:
+        return "starcoder2:3b"
+    elif "qwen" in m_lower:
+        return "qwen2.5-coder:1.5b"
+        
     if model not in ALLOWED_MODELS:
         raise HTTPException(
             status_code=400,
@@ -151,15 +165,31 @@ async def generate_response(body: LLMGenerateRequest) -> dict[str, Any]:
         base_name = model.split(":")[0]
         if base_name not in candidate_models:
             candidate_models.append(base_name)
-    elif f"{model}:latest" not in candidate_models:
-        candidate_models.append(f"{model}:latest")
+        if f"{base_name}:latest" not in candidate_models:
+            candidate_models.append(f"{base_name}:latest")
+    else:
+        if f"{model}:latest" not in candidate_models:
+            candidate_models.append(f"{model}:latest")
+
+    if "codellama" in model.lower():
+        for m in ["codellama:latest", "codellama", "codellama:7b"]:
+            if m not in candidate_models:
+                candidate_models.append(m)
+    elif "qwen" in model.lower():
+        for m in ["qwen2.5-coder:1.5b", "qwen2.5-coder", "qwen:1.8b"]:
+            if m not in candidate_models:
+                candidate_models.append(m)
+    elif "starcoder" in model.lower():
+        for m in ["starcoder2:3b", "starcoder2"]:
+            if m not in candidate_models:
+                candidate_models.append(m)
 
     for cand in candidate_models:
         payload = {
             "model": cand,
             "prompt": prompt,
             "stream": False,
-            "options": {"num_predict": 300, "temperature": 0.2},
+            "options": {"num_predict": 250, "temperature": 0.2},
         }
         try:
             async with httpx.AsyncClient(timeout=OLLAMA_TIMEOUT) as client:
@@ -188,3 +218,66 @@ async def generate_response(body: LLMGenerateRequest) -> dict[str, Any]:
         "prompt_length": len(prompt),
         "execution_mode": "offline-fallback-synthesis",
     }
+
+
+@app.post("/llm/compare")
+async def compare_models_response(body: LLMGenerateRequest) -> dict[str, Any]:
+    """Invokes all 3 candidate models on the same prompt and returns comparative outputs."""
+    import time
+    prompt = build_augmented_prompt(body)
+    results = {}
+
+    for m_def in BENCHMARK_MODELS:
+        m_id = m_def["id"]
+        m_alias = m_def["alias"]
+        m_name = m_def["name"]
+        t0 = time.time()
+        payload = {
+            "model": m_id,
+            "prompt": prompt,
+            "stream": False,
+            "options": {"num_predict": 180, "temperature": 0.2},
+        }
+        try:
+            async with httpx.AsyncClient(timeout=OLLAMA_TIMEOUT) as client:
+                resp = await client.post(f"{OLLAMA_BASE_URL}/api/generate", json=payload)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    answer = data.get("response", "").strip()
+                    duration_ms = round((time.time() - t0) * 1000, 2)
+                    results[m_alias] = {
+                        "name": m_name,
+                        "model_id": m_id,
+                        "answer": answer,
+                        "latency_ms": duration_ms,
+                        "prompt_eval_count": data.get("prompt_eval_count", len(prompt) // 4),
+                        "eval_count": data.get("eval_count", len(answer) // 4),
+                        "execution_mode": "ollama",
+                        "status": "success",
+                    }
+                else:
+                    duration_ms = round((time.time() - t0) * 1000, 2)
+                    results[m_alias] = {
+                        "name": m_name,
+                        "model_id": m_id,
+                        "answer": f"Ollama HTTP {resp.status_code}: {resp.text}",
+                        "latency_ms": duration_ms,
+                        "execution_mode": "error",
+                        "status": "error",
+                    }
+        except Exception as exc:
+            duration_ms = round((time.time() - t0) * 1000, 2)
+            results[m_alias] = {
+                "name": m_name,
+                "model_id": m_id,
+                "answer": f"Error contacting model: {exc}",
+                "latency_ms": duration_ms,
+                "execution_mode": "error",
+                "status": "error",
+            }
+
+    return {
+        "prompt_length": len(prompt),
+        "models": results,
+    }
+

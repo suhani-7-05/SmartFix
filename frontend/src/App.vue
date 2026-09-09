@@ -4,6 +4,8 @@ import SidebarNav from "./components/common/SidebarNav.vue";
 import QuestionPanel from "./components/technician/QuestionPanel.vue";
 import ResponsePanel from "./components/technician/ResponsePanel.vue";
 import ExecutionFlow from "./components/technician/ExecutionFlow.vue";
+import MultiModelComparePanel from "./components/technician/MultiModelComparePanel.vue";
+import CategoryBenchmarkDashboard from "./components/admin/CategoryBenchmarkDashboard.vue";
 
 import VectorStoreStats from "./components/admin/VectorStoreStats.vue";
 import DocumentManager from "./components/admin/DocumentManager.vue";
@@ -13,8 +15,8 @@ import ExecutionTraceViewer from "./components/admin/ExecutionTraceViewer.vue";
 import RAGRetrievedContextViewer from "./components/admin/RAGRetrievedContextViewer.vue";
 import SafetyAndEquipmentViewer from "./components/admin/SafetyAndEquipmentViewer.vue";
 
-import { callAskApi } from "./api/askApi.js";
-import { DEFAULT_LLM_MODEL, LLM_MODELS } from "./constants/models.js";
+import { callAskApi, callCompareApi, fetchBenchmarkResults } from "./api/askApi.js";
+import { DEFAULT_LLM_MODEL, LLM_MODELS, CATEGORY_SAMPLE_QUESTIONS } from "./constants/models.js";
 import {
   deleteDocument,
   fetchDocumentChunks,
@@ -25,17 +27,31 @@ import {
 } from "./api/kbApi.js";
 import { FLOW_STAGE_DEFS, createInitialFlowState } from "./flowStages.js";
 
-// Active Dashboard Tab ('technician' | 'admin')
+// Active Dashboard Tab ('technician' | 'compare' | 'benchmark' | 'admin')
 const activeTab = ref("technician");
 
 // --- Technician & Orchestrated State ---
-const question = ref("Why is my microwave running and turntable spinning, but food does not heat?");
+const question = ref("What does the search_similar() function in vector_store.py do?");
 const selectedModel = ref(DEFAULT_LLM_MODEL);
 const answer = ref("");
 const model = ref("");
 const errorMessage = ref("");
 const isLoading = ref(false);
 const flowState = ref(createInitialFlowState());
+
+// Multi-Model Comparison State
+const compareData = ref({
+  models: {},
+  safety_decision: "ALLOWED",
+  equipment_id: "N/A",
+  total_duration_ms: 0,
+});
+const isComparing = ref(false);
+const compareError = ref("");
+
+// Category Benchmark State
+const benchmarkData = ref(null);
+const benchmarkLoading = ref(false);
 
 // Orchestration & Observability Data
 const orchestrationData = ref({
@@ -50,13 +66,15 @@ const orchestrationData = ref({
 });
 
 const sampleQuestions = [
-  "My microwave runs and light turns on, but food stays cold. How do I troubleshoot?",
-  "Toaster lever pops back up immediately and will not stay latched down.",
-  "Can I open the microwave casing while plugged in to test the capacitor?",
-  "Washing machine is showing Error Err2 and stopped with a tub full of water.",
-  "Air fryer display is flashing Error E1 and stopped heating.",
-  "Range hood chimney makes a loud rattling sound on high speed.",
+  "What does the search_similar() function in vector_store.py do?",
+  "Which file handles text chunking and character offset tracking for uploaded documents?",
+  "Which microservices call the Equipment Service on port 8002?",
+  "What error occurs if an array truthiness check is evaluated on a NumPy vector returned by ChromaDB?",
+  "Write a Python function to parse equipment IDs like EQ-1023 from a query string.",
+  "Suggest an improvement to the HTTP service calls in orchestrator/main.py to improve latency.",
+  "What is the mandatory safety precaution before replacing part HP-FLTR-05 on EQ-1023?",
 ];
+
 
 const flowStages = computed(() =>
   FLOW_STAGE_DEFS.map((stage) => ({
@@ -287,9 +305,34 @@ async function handleDeleteDoc(docId) {
   }
 }
 
+async function runCompare(queryText) {
+  isComparing.value = true;
+  compareError.value = "";
+  try {
+    const res = await callCompareApi(queryText);
+    compareData.value = res;
+  } catch (err) {
+    compareError.value = err.message || "Failed to compare models.";
+  } finally {
+    isComparing.value = false;
+  }
+}
+
+async function loadBenchmark() {
+  benchmarkLoading.value = true;
+  try {
+    benchmarkData.value = await fetchBenchmarkResults();
+  } catch (err) {
+    console.error("Failed to load benchmark data:", err);
+  } finally {
+    benchmarkLoading.value = false;
+  }
+}
+
 onMounted(() => {
   loadKbStats();
   loadDocuments();
+  loadBenchmark();
 });
 </script>
 
@@ -304,11 +347,11 @@ onMounted(() => {
 
     <!-- Main View Panel -->
     <div class="main-content">
-      <!-- Technician View (Exercise 1 & Final Flow) -->
+      <!-- Technician View (Single Model Flow) -->
       <div v-if="activeTab === 'technician'" class="view-container">
         <div class="page-header">
-          <h2>Equipment Troubleshooting</h2>
-          <p>Ask technical questions about equipment and receive diagnostic guidance powered by local Ollama models.</p>
+          <h2>Equipment & Codebase Troubleshooting</h2>
+          <p>Ask technical questions about equipment and codebase architecture. Receives live guidance from local Ollama models.</p>
         </div>
 
         <div class="layout">
@@ -335,6 +378,25 @@ onMounted(() => {
 
           <ExecutionFlow :flow-stages="flowStages" />
         </div>
+      </div>
+
+      <!-- Live Multi-Model Comparison View (Code Llama vs StarCoder2 vs Qwen 2.5 Coder) -->
+      <div v-else-if="activeTab === 'compare'" class="view-container">
+        <MultiModelComparePanel
+          :is-loading="isComparing"
+          :compare-data="compareData"
+          :error-message="compareError"
+          @submit-compare="runCompare"
+        />
+      </div>
+
+      <!-- 7-Category Benchmark Evaluation Dashboard -->
+      <div v-else-if="activeTab === 'benchmark'" class="view-container">
+        <CategoryBenchmarkDashboard
+          :benchmark-data="benchmarkData"
+          :loading="benchmarkLoading"
+          @refresh-benchmark="loadBenchmark"
+        />
       </div>
 
       <!-- Admin Observability View (Exercises 2, 3, 4, 5) -->

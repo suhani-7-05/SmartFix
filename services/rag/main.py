@@ -64,6 +64,7 @@ async def health_check() -> dict[str, Any]:
 
 @app.get("/stats")
 @app.get("/rag/stats")
+@app.get("/kb/stats")
 async def get_stats() -> dict[str, Any]:
     sqlite_stats = db.get_stats()
     chroma_stats = vector_store.stats()
@@ -77,6 +78,7 @@ async def get_stats() -> dict[str, Any]:
 
 @app.post("/retrieve")
 @app.post("/rag/retrieve")
+@app.post("/kb/retrieve")
 async def retrieve_rag_context(body: RAGRetrieveRequest) -> dict[str, Any]:
     """
     RAG Retrieval Endpoint:
@@ -95,6 +97,7 @@ async def retrieve_rag_context(body: RAGRetrieveRequest) -> dict[str, Any]:
 
 
 @app.post("/documents/upload")
+@app.post("/kb/documents/upload")
 async def upload_document(file: UploadFile = File(...)) -> dict[str, Any]:
     filename = file.filename or "unnamed_document"
     ext = Path(filename).suffix.lower()
@@ -154,18 +157,64 @@ async def upload_document(file: UploadFile = File(...)) -> dict[str, Any]:
 
 
 @app.get("/documents")
+@app.get("/kb/documents")
 async def list_documents() -> list[dict[str, Any]]:
     return db.list_documents()
 
 
+@app.get("/documents/{document_id}")
+@app.get("/kb/documents/{document_id}")
+async def get_document(document_id: str) -> dict[str, Any]:
+    try:
+        return db.get_document(document_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Document not found.")
+
+
 @app.get("/documents/{document_id}/chunks")
+@app.get("/kb/documents/{document_id}/chunks")
 async def get_document_chunks(document_id: str) -> list[dict[str, Any]]:
+    try:
+        db.get_document(document_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Document not found.")
     return db.list_chunks(document_id)
 
 
+@app.get("/chunks/{chunk_id}")
+@app.get("/kb/chunks/{chunk_id}")
+async def get_chunk(chunk_id: str) -> dict[str, Any]:
+    try:
+        return db.get_chunk(chunk_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Chunk not found.")
+
+
 @app.get("/vectors/{vector_id}")
+@app.get("/kb/vectors/{vector_id}")
 async def get_vector(vector_id: str) -> dict[str, Any]:
     info = vector_store.get_vector(vector_id)
     if not info:
         raise HTTPException(status_code=404, detail="Vector not found.")
     return info
+
+
+@app.delete("/documents/{document_id}")
+@app.delete("/kb/documents/{document_id}")
+async def delete_document(document_id: str) -> dict[str, str]:
+    try:
+        doc = db.get_document(document_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Document not found.")
+
+    try:
+        file_p = Path(doc.get("file_path", ""))
+        if file_p.exists():
+            file_p.unlink()
+    except Exception as exc:
+        logger.warning("Could not delete physical file for doc %s: %s", document_id, exc)
+
+    vector_store.delete_by_document(document_id)
+    db.delete_document(document_id)
+    return {"status": "deleted", "id": document_id, "filename": doc.get("filename")}
+

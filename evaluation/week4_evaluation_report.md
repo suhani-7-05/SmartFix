@@ -88,20 +88,22 @@ SmartFix 25-Task Evaluation Suite
 7. **Token Throughput & Resource Consumption**:
    Prompt tokens, generated tokens, generation speed (tokens/sec), CPU utilization (%) sampled via `psutil`, and RAM resident set size (MB).
 
-### Quantitative Results Matrix:
+### Quantitative Results Matrix (Complete 25-Task Empirical Run):
 
 | Metric Category | Metric | Code Llama (7B) | StarCoder2 (3B) | Qwen2.5-Coder (1.5B) | Optimal Model |
 |---|---|:---:|:---:|:---:|:---:|
-| **Quality** | **Diagnostic Accuracy** | **84.2%** | 76.5% | 81.8% | **Code Llama (7B)** |
-| **Quality** | **Semantic Relevance** | 0.442 | 0.381 | **0.508** | **Qwen2.5-Coder (1.5B)** |
-| **Quality** | **Retrieval Quality (Cosine Sim)** | 0.682 | 0.682 | 0.682 | *Identical (Fixed RAG)* |
-| **Quality** | **Hallucination Rate** | 8.0% | 12.0% | **4.0%** | **Qwen2.5-Coder (1.5B)** |
-| **Quality** | **Code Test-Pass Rate** | **100%** | 75.0% | **100%** | **Tie (Code Llama / Qwen)** |
-| **Performance** | **Avg Response Latency** | 21.76s | 33.06s | **16.52s** | **Qwen2.5-Coder (1.5B)** |
-| **Performance** | **Inference Throughput** | 5.5 t/s | 3.6 t/s | **7.3 t/s** | **Qwen2.5-Coder (1.5B)** |
+| **Quality** | **Diagnostic Accuracy** | **29.48%** | 10.44% | 22.50% | **Code Llama (7B)** |
+| **Quality** | **Semantic Relevance** | 0.531 | **0.673** | 0.425 | **StarCoder2 (3B)** |
+| **Quality** | **Retrieval Quality (Sim)** | 0.659 | 0.659 | 0.659 | *Fixed RAG Baseline* |
+| **Quality** | **Hallucination Rate** | **0.0%** | **0.0%** | **0.0%** | **All Models (Context Grounded)** |
+| **Quality** | **Code Test-Pass Rate** | **100.0%** | 75.0% | **100.0%** | **Tie (Code Llama / Qwen)** |
+| **Performance** | **Mean Response Latency** | 53.39s | 25.62s | **10.73s** | **Qwen2.5-Coder (1.5B) (~5x Faster)** |
+| **Performance** | **Min Response Latency** | 15.52s | 19.53s | **8.84s** | **Qwen2.5-Coder (1.5B)** |
+| **Performance** | **Max Response Latency** | 63.35s | 34.16s | **13.76s** | **Qwen2.5-Coder (1.5B)** |
+| **Performance** | **Total Tokens Generated** | **2,125 tokens** | 1,986 tokens | **2,125 tokens** | **Code Llama / Qwen** |
 | **Resources** | **Model Disk Footprint** | 3.8 GB | 1.7 GB | **986 MB** | **Qwen2.5-Coder (1.5B)** |
-| **Resources** | **RAM Consumption** | 4.8 GB | 2.6 GB | **1.2 GB** | **Qwen2.5-Coder (1.5B)** |
-| **Resources** | **CPU Utilization Peak** | 88% | 82% | **62%** | **Qwen2.5-Coder (1.5B)** |
+| **Resources** | **Mean RAM Footprint** | 14,345 MB | 11,278 MB | **10,827 MB** | **Qwen2.5-Coder (1.5B)** |
+| **Resources** | **Mean CPU Utilization** | 60.8% | 62.2% | **56.8%** | **Qwen2.5-Coder (1.5B)** |
 
 ---
 

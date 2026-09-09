@@ -280,3 +280,124 @@ async def proxy_tickets():
     async with httpx.AsyncClient(timeout=10.0) as client:
         r = await client.get(f"{TICKET_SERVICE_URL}/tickets")
         return r.json()
+
+
+@app.post("/compare")
+@app.post("/orchestrate/compare")
+async def compare_orchestrated_request(body: OrchestrationRequest) -> dict[str, Any]:
+    """
+    Multi-Model Comparative Orchestration Endpoint.
+    Coordinates microservice context (Equipment, History, RAG, Safety, Spare Parts),
+    then simultaneously queries Code Llama, StarCoder2, and Qwen 2.5 Coder.
+    """
+    question = body.question.strip()
+    if not question:
+        raise HTTPException(status_code=400, detail="Question cannot be empty.")
+
+    eq_id = extract_equipment_id(question, body.equipment_id)
+    execution_trace = []
+    total_start = time.time()
+
+    async with httpx.AsyncClient() as client:
+        # Step 1: Equipment Service
+        eq_data, trace1 = await call_service_endpoint(
+            client, "GET", f"{EQUIPMENT_SERVICE_URL}/equipment/{eq_id}", "Equipment Service"
+        )
+        execution_trace.append(trace1)
+
+        # Step 2: History Service
+        hist_data, trace2 = await call_service_endpoint(
+            client, "GET", f"{HISTORY_SERVICE_URL}/history/{eq_id}", "History Service"
+        )
+        execution_trace.append(trace2)
+
+        # Step 3: RAG Retrieval Service
+        rag_data, trace3 = await call_service_endpoint(
+            client, "POST", f"{RAG_SERVICE_URL}/rag/retrieve", "RAG Service", {"query": question, "top_k": 3}
+        )
+        execution_trace.append(trace3)
+
+        # Step 4: Safety Engine Service
+        safety_data, trace4 = await call_service_endpoint(
+            client,
+            "POST",
+            f"{SAFETY_SERVICE_URL}/safety/evaluate",
+            "Safety Engine",
+            {"equipment_id": eq_id, "question": question, "equipment_data": eq_data},
+        )
+        execution_trace.append(trace4)
+
+        # Step 5: Spare Parts Service
+        parts_data, trace5 = await call_service_endpoint(
+            client, "GET", f"{SPARE_PARTS_SERVICE_URL}/spare-parts/{eq_id}", "Spare Parts Service"
+        )
+        execution_trace.append(trace5)
+
+        # Step 6: Multi-Model LLM Gateway Service
+        llm_input = {
+            "question": question,
+            "model": "codellama",
+            "equipment_info": eq_data,
+            "history_info": hist_data,
+            "rag_info": rag_data,
+            "safety_info": safety_data,
+            "spare_parts_info": parts_data,
+        }
+        llm_compare_data, trace6 = await call_service_endpoint(
+            client, "POST", f"{LLM_SERVICE_URL}/llm/compare", "Multi-Model LLM Service", llm_input
+        )
+        execution_trace.append(trace6)
+
+        # Step 7: Ticket Service
+        ticket_data = {}
+        safety_decision = safety_data.get("decision", "ALLOWED")
+        if safety_decision == "BLOCKED" or "ticket" in question.lower() or "dispatch" in question.lower():
+            ticket_input = {
+                "equipment_id": eq_id,
+                "issue_summary": f"Comparative ticket for {eq_id}: {question[:100]}",
+                "priority": "CRITICAL" if safety_decision == "BLOCKED" else "HIGH",
+                "safety_decision": safety_decision,
+            }
+            ticket_data, trace7 = await call_service_endpoint(
+                client, "POST", f"{TICKET_SERVICE_URL}/tickets/create", "Ticket Service", ticket_input
+            )
+            execution_trace.append(trace7)
+
+    total_duration_ms = round((time.time() - total_start) * 1000, 2)
+
+    return {
+        "question": question,
+        "equipment_id": eq_id,
+        "safety_decision": safety_decision,
+        "equipment": eq_data,
+        "history": hist_data,
+        "rag": rag_data,
+        "safety": safety_data,
+        "spare_parts": parts_data,
+        "ticket": ticket_data,
+        "total_duration_ms": total_duration_ms,
+        "execution_trace": execution_trace,
+        "models": llm_compare_data.get("models", {}),
+    }
+
+
+@app.get("/benchmark/results")
+async def get_benchmark_results():
+    """Serves the latest quantitative 7-category evaluation benchmark results."""
+    import json
+    from pathlib import Path
+    root = Path(__file__).resolve().parents[2]
+    candidate_paths = [
+        root / "eval" / "results_comparison.json",
+        root / "evaluation" / "benchmark_results.json",
+    ]
+    for cp in candidate_paths:
+        if cp.exists():
+            try:
+                with open(cp, "r", encoding="utf-8") as f:
+                    return json.load(f)
+            except Exception as e:
+                logger.error("Failed to read benchmark results from %s: %s", cp, e)
+
+    raise HTTPException(status_code=404, detail="Benchmark results not found. Run eval/benchmark_week4.py first.")
+
